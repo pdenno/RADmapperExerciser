@@ -1,0 +1,33 @@
+*~
+kit.git-config.edn
+.DS_Store
+.nrepl-port
+hs_err_pid*.log
+.cpcache/
+target
+log/
+
+node_modules/
+public/js
+package-lock.json
+modules/kit-modules/
+resources/migrations/
+
+/target
+/checkouts
+/src/gen
+
+
+# From the shadow-cljs project
+pom.xml
+pom.xml.asc
+*.iml
+*.jar
+*.log
+.shadow-cljs
+.lein-*
+.nrepl-*
+.DS_Store
+
+# clj-kondo
+.clj-kondo/.cache/

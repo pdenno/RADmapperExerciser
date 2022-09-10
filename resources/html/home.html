@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Welcome to guestbook</title>
+
+    <!-- styles -->
+    <link href="/css/screen.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">    
+</head>
+<body>
+    <!-- navbar -->
+    <nav>
+    </nav>
+    <section>
+        <div class="content">
+            <h2>Hello World! (script added)</h2>
+        </div>
+    </section>
+<!-- doing (kit/add-module :cljs) supposedly would add the following two lines to your home.html. It didn't -->    
+<div id="app"></div>
+<script src="/js/app.js"></script>
+
+<!-- This from guestbook -->
+<div class="content container">
+  <div class="columns">
+      <div class="column">
+          <h3>Messages</h3>
+          <ul class="messages">
+              {% for item in messages %}
+              <li>
+                  <time>{{item.timestamp}}</time>
+                  <p>{{item.message}}</p>
+                  <p> - {{item.name}}</p>
+              </li>
+              {% endfor %}
+          </ul>
+      </div>
+  </div>
+  <div class="columns">
+      <div class="column">
+          {% if errors.unknown %}
+          <div class="notification is-danger">{{errors.unknown}}</div>
+          {% endif %}
+          <form method="POST" action="/save-message">
+              {% csrf-field %}
+              <p>
+                  Name:
+                  <input class="input" type="text" name="name" value="{{name}}" />
+              </p>
+              {% if errors.name %}
+              <div class="notification is-danger">{{errors.name}}</div>
+              {% endif %}
+              <p>
+                  Message:
+                  <textarea class="textarea" name="message">{{message}}</textarea>
+              </p>
+              {% if errors.message %}
+              <div class="notification is-danger">{{errors.message}}</div>
+              {% endif %}
+              <input type="submit" class="button is-primary" value="comment" />
+          </form>
+      </div>
+  </div>
+</div>    
+</body>
+</html>
