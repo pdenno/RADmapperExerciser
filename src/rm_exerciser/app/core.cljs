@@ -3,12 +3,12 @@
    [reagent.core :as r]
    [reagent.dom :as rdom]
    ["react" :as react]
-   [nextjournal.clojure-mode :as cm-clj]
-   [nextjournal.clojure-mode.test-utils :as test-utils]
-   ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]] ; clojure-mode/demo
-   ["@codemirror/commands" :refer [history historyKeymap]]                               ; clojure-mode/demo
-   ["@codemirror/state" :refer [EditorState]]                                            ; both
-   ["@codemirror/view" :as view :refer [EditorView]]                                     ; both
+   [rm-exerciser.app.rm-mode :as rm-mode]
+   [rm-exerciser.app.rm-mode.test-utils :as test-utils]
+   ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
+   ["@codemirror/commands" :refer [history historyKeymap]]
+   ["@codemirror/state" :refer [EditorState]]
+   ["@codemirror/view" :as view :refer [EditorView]]
    [applied-science.js-interop :as j]))
 
 (declare init editor)
@@ -75,8 +75,8 @@
                         (view/drawSelection)
                         (foldGutter)
                         (.. EditorState -allowMultipleSelections (of true))
-                        cm-clj/default-extensions
-                        (.of view/keymap cm-clj/complete-keymap)
+                        rm-mode/default-extensions
+                        (.of view/keymap rm-mode/complete-keymap)
                         (.of view/keymap historyKeymap)])
 
 (defn editor [source {:keys [eval?]}]
