@@ -15,28 +15,19 @@
                       :title "Invalid anti-forgery token"})]
     #(wrap-anti-forgery % {:error-response error-page})))
 
-#_(defn home [request]
-    (layout/render request "home.html"))
-
-;;; POD added. See Creating Pages and Handling Form Input
 (defn home [{:keys [flash] :as request}]
   (let [{:keys [query-fn]} (utils/route-data request)]
     (layout/render request "home.html" {:messages (query-fn :get-messages {})
                                         :errors (:errors flash)})))
 
-;; Routes
-#_(defn page-routes [_opts]
-    [["/" {:get home}]])
-
-;;; POD added. See Creating Pages and Handling Form Input
 (defn page-routes [_opts]
-  [["/" {:get home}]   
+  [["/" {:get home}]
    ["/save-message" {:post guestbook/save-message!}]])
 
 (defn route-data [opts]
   (merge
    opts
-   {:middleware 
+   {:middleware
     [;; Default middleware for pages
      (wrap-page-defaults)
      ;; query-params & form-params
@@ -54,4 +45,3 @@
       :as   opts}]
   (layout/init-selmer!)
   [base-path (route-data opts) (page-routes opts)])
-

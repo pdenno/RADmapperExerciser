@@ -1,13 +1,10 @@
-;; shadow-cljs configuration
-{:deps {:aliases [:dev]}   ; Instead of :dependencies
- :dev-http {3001 "public"} ; from shadow getting started. ./publicd is where main.js is found, and where you put index.html
- :nrepl {:port 7002}       ; from kit
- :builds ; Mostly from https://kit-clj.github.io/docs/clojurescript.html, but unlike there, I'm not using :dependencies here.
+{:deps {:aliases [:dev]}
+ :nrepl {:port 7002}
+ :builds
  {:frontend
   {:target :browser
-   :output-dir "target/classes/cljsbuild/public/js"
+   :output-dir "resources/public/js"
    :asset-path "/js"
-   #_#_:modules {:main {:init-fn client.app/init}} ; This is for the server-side thing in getting started.
-   :modules  {:app {:entries [kit.guestbook.core]}} ; This from https://kit-clj.github.io/docs/clojurescript.html
-   :devtools {:after-load kit.guestbook.core/mount-root} ; See similar in zotero-tools.
-  }}}
+   :modules  {:app {:entries [kit.guestbook.client]
+                     :init-fn kit.guestbook.client/mount-root}}
+   :devtools {:after-load kit.guestbook.client/mount-root}}}}
