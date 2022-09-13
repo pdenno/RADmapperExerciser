@@ -5,6 +5,6 @@
   {:target :browser
    :output-dir "resources/public/js"
    :asset-path "/js"
-   :modules  {:app {:entries [kit.guestbook.client]
-                     :init-fn kit.guestbook.client/mount-root}}
-   :devtools {:after-load kit.guestbook.client/mount-root}}}}
+   :modules  {:app {:entries [rm-exerciser.app.core] ; creates app.js owing to key :app.
+                     :init-fn rm-exerciser.app.core/mount-root}}
+   :devtools {:after-load rm-exerciser.app.core/mount-root}}}}

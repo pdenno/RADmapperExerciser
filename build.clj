@@ -3,7 +3,7 @@
             [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as deploy]))
 
-(def lib 'kit/guestbook)
+(def lib 'exerciser)
 (def main-cls (string/join "." (filter some? [(namespace lib) (name lib) "core"])))
 (def version (format "0.0.1-SNAPSHOT"))
 (def target-dir "target")
