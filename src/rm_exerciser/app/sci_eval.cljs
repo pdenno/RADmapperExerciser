@@ -2,16 +2,27 @@
   (:require ["@codemirror/view" :as view]
             [applied-science.js-interop :as j]
             [clojure.string :as str]
-            [rm-exerciser.rm-mode.extensions.eval-region :as eval-region]
-            [sci.core :as sci]))
+            [rad-mapper.evaluate :as ev]
+            [rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
+            #_[sci.core :as sci]
+            [taoensso.timbre :as log :refer-macros [info debug log]]))
 
-(defn eval-string
-  #_([source] (eval-string @sv/!sci-ctx source))
+#_(defn eval-string
+  ([source] (eval-string @sv/!sci-ctx source))
   ([ctx source]
    (when-some [code (not-empty (str/trim source))]
      (try {:result (sci/eval-string* ctx code)}
           (catch js/Error e
             {:error (str (.-message e))})))))
+
+;;; ToDo: This does the parsing again. Should I care?
+(defn eval-string
+  [source]
+  (when-some [code (not-empty (str/trim source))]
+    (log/info "eval-string" code)
+    (try {:result (ev/processRM :ptag/exp code {:execute? true :sci? true})}
+         (catch js/Error e
+            {:error (str (.-message e))}))))
 
 (j/defn eval-at-cursor [on-result ^:js {:keys [state]}]
   (some->> (eval-region/cursor-node-string state)
@@ -45,6 +56,7 @@
 
 (defn extension [{:keys [modifier
                          on-result]}]
+  (log/info "sci-eval Extension")
   (.of view/keymap
        (j/lit
         [{:key "Mod-Enter"

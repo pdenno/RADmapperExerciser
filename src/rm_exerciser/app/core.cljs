@@ -15,20 +15,24 @@
 
 (declare init editor)
 
-(def init-text  ";;; Your code goes here:\n(def answer\n  (+ (* 4 10) 2))")
+(def init-text
+"(  $DBa := [{'id' : 123, 'aAttr' : 'Bob-A-data',   'name' : 'Bob'},
+            {'id' : 234, 'aAttr' : 'Alice-A-data', 'name' : 'Alice'}];
 
-;;;  [:div.title.is-2.turquoise {:color "turquoise"} "RADmapper Exerciser"
+   $DBb := [{'id' : 123, 'bAttr' : 'Bob-B-data'},
+            {'id' : 234, 'bAttr' : 'Alice-B-data'}];
 
-;;;<section class="hero">
-;;;  <div class="hero-body">
-;;;    <p class="title">
-;;;      Hero title
-;;;    </p>
-;;;    <p class="subtitle">
-;;;      Hero subtitle
-;;;    </p>
-;;;  </div>
-;;;</section>
+   $qFn :=  query(){[$DBa ?e1 :id    ?id]
+                    [$DBb ?e2 :id    ?id]
+                    [$DBa ?e1 :name  ?name]
+                    [$DBa ?e1 :aAttr ?aData]
+                    [$DBb ?e2 :bAttr ?bData]};
+
+   $bSets := $qFn($DBa, $DBb);
+
+   $eFn := express(){{?id : {'name' : ?name, 'aData' : ?aData, 'bData' : ?bData}}};
+
+   $reduce($bSets, $eFn) )")
 
 (defn home-page [_s]
   [:div
@@ -46,11 +50,7 @@
      ;; RHS
      [:div.tile.is-parent.is-vertical
       [:article.tile.is-child.is-12
-       [:p.title.is-6 "Editor"]
-       [editor init-text {:eval? true}]] ; <======================== :eval? true
-      [:article.tile.is-child.is-12
-       [:p.title.is-6 "Output"]
-       [:textarea.textarea #_"/* Output */"]]]]]])
+       [editor init-text {:eval? true}]]]]]])
 
 (def app-state
   (r/atom {:rand (rand)}))
@@ -109,14 +109,17 @@
     [:div
      [:div {:class "rounded-md mb-0 text-sm monospace overflow-auto relative border shadow-lg bg-white"
             :ref mount!
-            :style {:max-height 410}}]
-     (when eval?
-       [:div.mt-3.mv-4.pl-6 {:style {:white-space "pre-wrap" :font-family "var(--code-font)"}}
+            :style {:max-height 610}}]
+     [:article.tile.is-child.is-12
+      [:p.title.is-6 "Output"]
+      [:textarea.textarea.is-success
+       {:class "monospace text-sm overflow-auto"
+        :value
         (when-some [{:keys [error result]} @last-result]
-          (cond
-            error [:div.red error]
-            (react/isValidElement result) result
-            :else (.log js/console "huh?")))])]
+          (.log js/console (str "result = " (or result error)))
+          (if error
+            (str error)
+            (str result)))}]]]
     (finally
       (println "In finally")
       (j/call @!view :destroy))))

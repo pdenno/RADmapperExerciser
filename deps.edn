@@ -23,7 +23,7 @@
            luminus/ring-ttl-session {:mvn/version "0.3.3"}
 
            ;; heart of the app
-           com.github.pdenno/RADmapper {:git/sha "b09dc7f7ca868a35fac5947a43b894bcc3d337cc"}
+           com.github.pdenno/RADmapper {:git/sha "9ec24bff5d6bef1f32a4cffa562d087bfb4fc7f9"}
            reagent/reagent {:mvn/version "1.1.1"}
            applied-science/js-interop {:mvn/version "0.3.3"}}
 
