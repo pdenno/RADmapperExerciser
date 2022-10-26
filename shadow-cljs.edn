@@ -1,10 +1,12 @@
 {:deps {:aliases [:dev]}
  :nrepl {:port 7002}
+ :http  {:port 9631}
  :builds
  {:frontend
   {:target :browser
    :output-dir "resources/public/js"
    :asset-path "/js"
+   :compiler-options {:externs ["datascript/externs.js"]}
    :modules  {:app {:entries [rm-exerciser.app.core] ; creates app.js owing to key :app.
                      :init-fn rm-exerciser.app.core/mount-root}}
    :devtools {:after-load rm-exerciser.app.core/mount-root}}}}

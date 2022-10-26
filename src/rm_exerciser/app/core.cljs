@@ -1,10 +1,12 @@
 (ns rm-exerciser.app.core
   (:require
+   #_[rad-mapper.evaluate :as ev]
    [reagent.core :as r]
    [reagent.dom :as rdom]
    ["react" :as react]
    [rm-exerciser.app.rm-mode :as rm-mode]
    [rm-exerciser.app.rm-mode.test-utils :as test-utils]
+   [rm-exerciser.app.sci-eval :as sci-eval]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
    ["@codemirror/commands" :refer [history historyKeymap]]
    ["@codemirror/state" :refer [EditorState]]
@@ -33,11 +35,22 @@
    [:section.hero.is-small.is-link ; This probably won't work because it must be "the main container".
     [:div.hero-body
      [:div.title.is-large "RADmapper Exerciser"]]]
-   [editor init-text {}]
-   [:p]
-   [:div.button.is-success "Save"]
-   [:p]
-   [:a {:href "https://bulma.io/documentation/elements/title/"} "Bulma page"]])
+   [:div.tile.is-ancestor
+    ;; LHS
+    [:div.tile.is-parent ; .is-horizontal
+     [:article.tile.is-child
+      [:p.title.is-6 "Source data"]
+      [:textarea.textarea]
+      #_[:div.button.is-success "Save"]
+      #_[:a {:href "https://bulma.io/documentation/elements/title/"} "Bulma page"]]
+     ;; RHS
+     [:div.tile.is-parent.is-vertical
+      [:article.tile.is-child.is-12
+       [:p.title.is-6 "Editor"]
+       [editor init-text {:eval? true}]] ; <======================== :eval? true
+      [:article.tile.is-child.is-12
+       [:p.title.is-6 "Output"]
+       [:textarea.textarea #_"/* Output */"]]]]]])
 
 (def app-state
   (r/atom {:rand (rand)}))
@@ -88,7 +101,7 @@
                                              (j/obj :state
                                                     (test-utils/make-state
                                                      (cond-> #js [extensions]
-                                                       eval? :POD #_(.concat #js [(demo.sci/extension
+                                                       eval? (.concat #js [(sci-eval/extension
                                                                                    {:modifier "Alt"
                                                                                     :on-result (partial reset! last-result)})]))
                                                      source)

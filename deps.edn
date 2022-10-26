@@ -23,6 +23,7 @@
            luminus/ring-ttl-session {:mvn/version "0.3.3"}
 
            ;; heart of the app
+           com.github.pdenno/RADmapper {:git/sha "b09dc7f7ca868a35fac5947a43b894bcc3d337cc"}
            reagent/reagent {:mvn/version "1.1.1"}
            applied-science/js-interop {:mvn/version "0.3.3"}}
 
@@ -44,7 +45,7 @@
                                 binaryage/devtools              {:mvn/version "1.0.6"}
                                 nrepl/nrepl                     {:mvn/version "1.0.0"}
                                 cljs-ajax/cljs-ajax             {:mvn/version "0.8.4"}   ; kit sente web sockets. Useful?
-                                thheller/shadow-cljs            {:mvn/version "2.20.1"}}
+                                thheller/shadow-cljs            {:mvn/version "2.20.5"}}
                   :extra-paths ["env/dev" "env/dev/resources" "test"]
                   :main-opts   []}
            :nrepl {:extra-deps {nrepl/nrepl {:mvn/version "1.0.0"}}

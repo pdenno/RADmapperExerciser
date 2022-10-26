@@ -1,16 +1,18 @@
 (ns rm-exerciser.app.rm-mode
-  (:require ["@lezer/highlight" :as highlight :refer [tags]]
-            ["@codemirror/language" :as language :refer [LRLanguage LanguageSupport]]
-            ["lezer-clojure" :as lezer-clj]
-            [applied-science.js-interop :as j]
-            [rm-exerciser.app.rm-mode.extensions.close-brackets :as close-brackets]
-            [rm-exerciser.app.rm-mode.extensions.match-brackets :as match-brackets]
-            [rm-exerciser.app.rm-mode.extensions.formatting :as format]
-            [rm-exerciser.app.rm-mode.extensions.selection-history :as sel-history]
-            [rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
-            [rm-exerciser.app.rm-mode.keymap :as keymap]
-            [rm-exerciser.app.rm-mode.node :as n]
-            [rm-exerciser.app.rm-mode.test-utils :as test-utils]))
+  (:require
+   [rad-mapper.evaluate :as ev]
+   ["@lezer/highlight" :as highlight :refer [tags]]
+   ["@codemirror/language" :as language :refer [LRLanguage LanguageSupport]]
+   ["lezer-clojure" :as lezer-clj]
+   [applied-science.js-interop :as j]
+   [rm-exerciser.app.rm-mode.extensions.close-brackets :as close-brackets]
+   [rm-exerciser.app.rm-mode.extensions.match-brackets :as match-brackets]
+   [rm-exerciser.app.rm-mode.extensions.formatting :as format]
+   [rm-exerciser.app.rm-mode.extensions.selection-history :as sel-history]
+   [rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
+   [rm-exerciser.app.rm-mode.keymap :as keymap]
+   [rm-exerciser.app.rm-mode.node :as n]
+   [rm-exerciser.app.rm-mode.test-utils :as test-utils]))
 
 (def fold-node-props
   (let [coll-span (fn [^js tree] #js{:from (inc (n/start tree))
@@ -37,6 +39,13 @@
             :Nil (.-null tags)
             :LineComment (.-lineComment tags)
             :RegExp (.-regexp tags)}))
+
+(defn parse
+  "Wrapper over ev/processRM"
+  [text]
+  (try
+    (ev/processRM :ptag/exp text)
+    (catch :default _e "...")))
 
 (def parser lezer-clj/parser)
 
