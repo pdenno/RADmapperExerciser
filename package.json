@@ -1,7 +1,7 @@
 {
-  "name": "guestbook",
+  "name": "RMexerciser",
   "version": "1.0.0",
-  "description": "exploring clojure-mode with kit guestbook",
+  "description": "an exerciser for RADmapper",
   "main": "index.js",
   "dependencies": {
     "@codemirror/autocomplete": "6.1.1",
@@ -24,8 +24,14 @@
     "w3c-keyname": "2.2.6"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+      "test": "echo \"Error: no test specified\" && exit 1",
+       "css-build": "node-sass --omit-source-map-url sass/mystyles.scss resources/public/css/mystyles.css",
+       "css-watch": "npm run css-build -- --watch"
   },
   "author": "Peter Denno",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "bulma": "^0.9.4",
+    "node-sass": "^7.0.3"
+  }
 }

@@ -19,7 +19,7 @@
            ;; kit Libs
            io.github.kit-clj/kit-core {:mvn/version "1.0.1"}     ; very small; uses clojure.tools.logging though.
            io.github.kit-clj/kit-undertow {:mvn/version "1.0.2"} ; very small.
-           selmer/selmer {:mvn/version "1.12.53"}
+           selmer/selmer {:mvn/version "1.12.53"} ; Probably can go, but see pages/layout.clj and routes/pages.clj.
            luminus/ring-ttl-session {:mvn/version "0.3.3"}
 
            ;; heart of the app

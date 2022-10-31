@@ -4,16 +4,7 @@
             [clojure.string :as str]
             [rad-mapper.evaluate :as ev]
             [rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
-            #_[sci.core :as sci]
             [taoensso.timbre :as log :refer-macros [info debug log]]))
-
-#_(defn eval-string
-  ([source] (eval-string @sv/!sci-ctx source))
-  ([ctx source]
-   (when-some [code (not-empty (str/trim source))]
-     (try {:result (sci/eval-string* ctx code)}
-          (catch js/Error e
-            {:error (str (.-message e))})))))
 
 ;;; ToDo: This does the parsing again. Should I care?
 (defn eval-string
@@ -30,6 +21,7 @@
            (on-result))
   true)
 
+;;; ToDo: This is among things that will probably go away (or I switch to Clerk!)
 (j/defn eval-top-level [on-result ^:js {:keys [state]}]
   (some->> (eval-region/top-level-string state)
            (eval-string)

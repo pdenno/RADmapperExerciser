@@ -34,23 +34,23 @@
 
    $reduce($bSets, $eFn) )")
 
+;;; grid-template:
+;;;             "h h" 40px
+;;;             "d e" 40px
+;;;             "d o" 40px / 1fr 1fr;
 (defn home-page [_s]
-  [:div
-   [:section.hero.is-small.is-link ; This probably won't work because it must be "the main container".
-    [:div.hero-body
-     [:div.title.is-large "RADmapper Exerciser"]]]
-   [:div.tile.is-ancestor
-    ;; LHS
-    [:div.tile.is-parent ; .is-horizontal
-     [:article.tile.is-child
-      [:p.title.is-6 "Source data"]
-      [:textarea.textarea]
-      #_[:div.button.is-success "Save"]
-      #_[:a {:href "https://bulma.io/documentation/elements/title/"} "Bulma page"]]
-     ;; RHS
-     [:div.tile.is-parent.is-vertical
-      [:article.tile.is-child.is-12
-       [editor init-text {:eval? true}]]]]]])
+  [:div {:style {:margin "10px" :heigth "100%"}}
+   [:main {:style {:display "grid" :border "3px dotted red" :padding "3px" :grid-gap "3px" :margin "10px" :height "100%"
+                                                                                 ;      ROWS    / COLUMNS
+                   :grid-template "\"hero hero\" min-content \"data editor\" 1fr \"data output\" 1fr / 1fr 1fr "}}
+    [:section.hero.is-small.is-primary {:style {:grid-area "hero"}}
+     [:div.hero-body
+      [:div.title.is-large "RADmapper Exerciser"]]]
+    [:div
+     [:textarea {:style {:grid-area "data" :border "3px dotted blue" :overflow "auto" :resize "horizontal"
+                         :width "100%" :height "100%"}
+                 :defaultValue "/* Use in-lined data for the time being!*/"}]]
+    [editor init-text {:eval? true}]]])
 
 (def app-state
   (r/atom {:rand (rand)}))
@@ -61,16 +61,15 @@
 (defn ^:export ^:dev/once init! [] (mount-root))
 
 ;;;------------------------------------------
-;;; From clojure-mode/demo, but very similar to clojure-mode-demo.
+;;; https://codemirror.net/examples/styling/
 (def theme
   (.theme EditorView
           (j/lit {".cm-content" {:white-space "pre-wrap"
                                  :padding "10px 0"
                                  :flex "1 1 0"}
-
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
-                              :line-height "1.6"
+                              :line-height "1.6" ;<====================
                               :font-size "16px"
                               :font-family "var(--code-font)"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
@@ -107,19 +106,19 @@
                                                      source)
                                                     :parent el)))))]
     [:div
-     [:div {:class "rounded-md mb-0 text-sm monospace overflow-auto relative border shadow-lg bg-white"
-            :ref mount!
-            :style {:max-height 610}}]
-     [:article.tile.is-child.is-12
-      [:p.title.is-6 "Output"]
-      [:textarea.textarea.is-success
-       {:class "monospace text-sm overflow-auto"
-        :value
-        (when-some [{:keys [error result]} @last-result]
-          (.log js/console (str "result = " (or result error)))
-          (if error
-            (str error)
-            (str result)))}]]]
+     [:div {:class  "mb-0 text-sm monospace overflow-auto relative border shadow-lg bg-white m-0"
+            :style {:grid-area "editor" :overflow "auto" :resize "vertical" :border "3px dotted blue"}
+            :ref mount!}]
+     [:textarea
+      {:class "textarea editable monospace text-sm overflow-auto  m-0 border"
+       :onChange true
+       :style {:grid-area "output" :width "100%" :height "100%" :min-width "100px" :border "3px dotted"}
+       :value (or (when-some [{:keys [error result]} @last-result]
+                    (.log js/console (str "result = " (or result error)))
+                    (if error
+                      (str error)
+                      (str result)))
+                  "Cntl-Enter above to execute.")}]]
     (finally
       (println "In finally")
       (j/call @!view :destroy))))
