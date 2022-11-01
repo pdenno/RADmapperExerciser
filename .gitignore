@@ -13,6 +13,7 @@ package-lock.json
 modules/kit-modules/
 resources/migrations/
 resources/public/js/
+resources/play/
 
 /target
 /checkouts

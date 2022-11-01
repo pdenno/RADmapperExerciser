@@ -70,7 +70,7 @@
 (def ^js/Array paredit-keymap keymap/paredit)
 
 (def default-extensions
-  #js[(syntax lezer-clj/parser)
+  #js[(syntax lezer-clj/parser) ; <=============== ToDo
       (close-brackets/extension)
       (match-brackets/extension)
       (sel-history/extension)

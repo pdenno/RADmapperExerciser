@@ -39,17 +39,22 @@
 ;;;             "d e" 40px
 ;;;             "d o" 40px / 1fr 1fr;
 (defn home-page [_s]
-  [:div {:style {:margin "10px" :heigth "100%"}}
-   [:main {:style {:display "grid" :border "3px dotted red" :padding "3px" :grid-gap "3px" :margin "10px" :height "100%"
-                                                                                 ;      ROWS    / COLUMNS
-                   :grid-template "\"hero hero\" min-content \"data editor\" 1fr \"data output\" 1fr / 1fr 1fr "}}
-    [:section.hero.is-small.is-primary {:style {:grid-area "hero"}}
-     [:div.hero-body
-      [:div.title.is-large "RADmapper Exerciser"]]]
-    [:div
-     [:textarea {:style {:grid-area "data" :border "3px dotted blue" :overflow "auto" :resize "horizontal"
-                         :width "100%" :height "100%"}
-                 :defaultValue "/* Use in-lined data for the time being!*/"}]]
+  [:main ;{:style {:width "100%" :height "100%"}}
+   [:section.hero.is-small.is-primary
+    [:div.hero-body
+     [:div.title.is-large "RADmapper Exerciser"]]]
+   [:div {:class "container"
+          :style {:display "grid" :padding "0px" :grid-gap "0px" :margin "0px"
+                  :grid-template-columns "1fr auto"
+                  :grid-template-rows "max-content"
+                  }}
+    [:div {:class "item"
+           :style {:grid-column-start 1
+                   :grid-column-end 2
+                   :border "3px solid" :overflow "auto" :resize "horizontal"
+                   :width "100%" :height "100%"}}
+     [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
+                 :style {:width "100%" :height "100%"}}]]
     [editor init-text {:eval? true}]]])
 
 (def app-state
@@ -66,7 +71,8 @@
   (.theme EditorView
           (j/lit {".cm-content" {:white-space "pre-wrap"
                                  :padding "10px 0"
-                                 :flex "1 1 0"}
+                                 ;; :flex makes it a flex box and no scroll horizontal scroll bar.
+                                 #_#_ :flex "1 1 0"}
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
                               :line-height "1.6" ;<====================
@@ -105,20 +111,28 @@
                                                                                     :on-result (partial reset! last-result)})]))
                                                      source)
                                                     :parent el)))))]
-    [:div
-     [:div {:class  "mb-0 text-sm monospace overflow-auto relative border shadow-lg bg-white m-0"
-            :style {:grid-area "editor" :overflow "auto" :resize "vertical" :border "3px dotted blue"}
+    [:div {:class "item container"
+           :style {:border "3px solid" :overflow "auto" ; :resize "horizontal"
+                   :grid-column-start 2
+                   :grid-column-end 3
+                   :grid-row-start 1
+                   :max-width "90vw" :min-width "10vw" :height "100%" :padding "0px" :grid-gap "0px" :margin "0px"
+                   :display "grid"
+                   :grid-item-rows "1fr 1fr"}}
+
+     [:div {:class "item text-sm monospace relative"
+            :style {:overflow "auto" :resize "vertical" :border "3px solid" :scroll-x "true" :lineWrapping "false" :max-width "90vw"}
             :ref mount!}]
      [:textarea
-      {:class "textarea editable monospace text-sm overflow-auto  m-0 border"
-       :onChange true
-       :style {:grid-area "output" :width "100%" :height "100%" :min-width "100px" :border "3px dotted"}
+      {:class "item textarea editable monospace text-sm overflow-auto m-0"
+       :style {:max-width "90vw" :overflow "auto"}
+       :onChange true ; ToDo: really?
        :value (or (when-some [{:keys [error result]} @last-result]
                     (.log js/console (str "result = " (or result error)))
                     (if error
                       (str error)
                       (str result)))
-                  "Cntl-Enter above to execute.")}]]
+                  "Ctrl-Enter above to execute.")}]]
     (finally
       (println "In finally")
       (j/call @!view :destroy))))
