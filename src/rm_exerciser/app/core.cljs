@@ -39,22 +39,34 @@
 ;;;             "d e" 40px
 ;;;             "d o" 40px / 1fr 1fr;
 (defn home-page [_s]
-  [:main ;{:style {:width "100%" :height "100%"}}
+  [:main  #_{:class "container"
+           :style {:width "100%" :height "100%"}}
    [:section.hero.is-small.is-primary
     [:div.hero-body
      [:div.title.is-large "RADmapper Exerciser"]]]
    [:div {:class "container"
-          :style {:display "grid" :padding "0px" :grid-gap "0px" :margin "0px"
-                  :grid-template-columns "1fr auto"
-                  :grid-template-rows "max-content"
+          :style {:display "grid" :padding "0px" :grid-gap "0px"
+                  :grid-template-columns "auto"
+                  :grid-template-rows "auto"
+                  ;:position "absolute"
+                  ;:top "40px"
+                  ;:bottom "10px"
+                  :margin "auto"
+                  :height "100%"
+                  :max-width "90vw"
+                  :min-width "10vw"
                   }}
     [:div {:class "item"
            :style {:grid-column-start 1
                    :grid-column-end 2
-                   :border "3px solid" :overflow "auto" :resize "horizontal"
-                   :width "100%" :height "100%"}}
+                   :border "3px solid"
+                   :overflow "auto"
+                   :resize "horizontal"
+                   :width "100%"
+                   :min-width "10vw"
+                   :height "100%"}}
      [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
-                 :style {:width "100%" :height "100%"}}]]
+                 :style {:max-width "90vw" :min-width "10vw" :width "100%" :height "100%"}}]]
     [editor init-text {:eval? true}]]])
 
 (def app-state
@@ -75,7 +87,7 @@
                                  #_#_ :flex "1 1 0"}
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
-                              :line-height "1.6" ;<====================
+                              :line-height "1.3"
                               :font-size "16px"
                               :font-family "var(--code-font)"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
@@ -116,16 +128,25 @@
                    :grid-column-start 2
                    :grid-column-end 3
                    :grid-row-start 1
-                   :max-width "90vw" :min-width "10vw" :height "100%" :padding "0px" :grid-gap "0px" :margin "0px"
+                   ;:min-width "10vw" :max-width "100vw"  ;:height "100%" :padding "0px" :grid-gap "0px" :margin "0px"
                    :display "grid"
+                   :margin "auto"
                    :grid-item-rows "1fr 1fr"}}
 
-     [:div {:class "item text-sm monospace relative"
-            :style {:overflow "auto" :resize "vertical" :border "3px solid" :scroll-x "true" :lineWrapping "false" :max-width "90vw"}
+     [:div {:class "item"
+            :style {:overflow "auto"
+                    :resize "vertical"
+                    :border "3px solid"
+                    :scroll-x "true"
+                    :lineWrapping "false"
+                    ;:margin "auto"
+                    :max-width "90vw"}
             :ref mount!}]
      [:textarea
-      {:class "item textarea editable monospace text-sm overflow-auto m-0"
-       :style {:max-width "90vw" :overflow "auto"}
+      {:class "textarea editable monospace text-sm overflow-auto m-0"
+       :style {:max-width "90vw"
+               :margin "auto"
+               :overflow "auto"}
        :onChange true ; ToDo: really?
        :value (or (when-some [{:keys [error result]} @last-result]
                     (.log js/console (str "result = " (or result error)))
