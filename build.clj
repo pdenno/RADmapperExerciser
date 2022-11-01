@@ -3,8 +3,8 @@
             [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as deploy]))
 
-(def lib 'exerciser)
-(def main-cls (string/join "." (filter some? [(namespace lib) (name lib) "core"])))
+(def lib 'com.github.pdenno/exerciser)
+(def main-cls "rm-exerciser.server.core") ; (string/join "." (filter some? [(namespace lib) (name lib) "core"])))
 (def version (format "0.0.1-SNAPSHOT"))
 (def target-dir "target")
 (def class-dir (str target-dir "/" "classes"))
@@ -23,14 +23,14 @@
                 :lib lib
                 :version version
                 :basis basis
-                :src-dirs ["src/clj"]})
-  (b/copy-dir {:src-dirs ["src/clj" "resources" "env/prod/clj"]
+                :src-dirs ["src"]})
+  (b/copy-dir {:src-dirs ["src" "resources/public" "env/prod"]
                :target-dir class-dir}))
 
 (defn uber [_]
   (println "Compiling Clojure...")
   (b/compile-clj {:basis basis
-                  :src-dirs ["src/clj" "env/prod/clj"]
+                  :src-dirs ["src" "env/prod"]
                   :class-dir class-dir})
   (println "Making uberjar...")
   (b/uber {:class-dir class-dir

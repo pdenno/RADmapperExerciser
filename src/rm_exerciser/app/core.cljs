@@ -46,11 +46,8 @@
      [:div.title.is-large "RADmapper Exerciser"]]]
    [:div {:class "container"
           :style {:display "grid" :padding "0px" :grid-gap "0px"
-                  :grid-template-columns "auto"
+                  :grid-template-columns "auto" ; "1fr 1fr" (1fr means it can't get bigger")
                   :grid-template-rows "auto"
-                  ;:position "absolute"
-                  ;:top "40px"
-                  ;:bottom "10px"
                   :margin "auto"
                   :height "100%"
                   :max-width "90vw"
@@ -62,11 +59,15 @@
                    :border "3px solid"
                    :overflow "auto"
                    :resize "horizontal"
-                   :width "100%"
+                   :max-width "90vw"
                    :min-width "10vw"
                    :height "100%"}}
      [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
-                 :style {:max-width "90vw" :min-width "10vw" :width "100%" :height "100%"}}]]
+                 :style {;:max-width "90vw"
+                         ;:min-width "10vw"
+                         ;:width "100%"
+                         ;:height "100%"
+                         }}]]
     [editor init-text {:eval? true}]]])
 
 (def app-state
@@ -128,20 +129,19 @@
                    :grid-column-start 2
                    :grid-column-end 3
                    :grid-row-start 1
-                   ;:min-width "10vw" :max-width "100vw"  ;:height "100%" :padding "0px" :grid-gap "0px" :margin "0px"
+                   ; Nested grid
                    :display "grid"
                    :margin "auto"
-                   :grid-item-rows "1fr 1fr"}}
-
+                   :grid-item-rows "auto"}}
      [:div {:class "item"
             :style {:overflow "auto"
                     :resize "vertical"
                     :border "3px solid"
                     :scroll-x "true"
                     :lineWrapping "false"
-                    ;:margin "auto"
-                    :max-width "90vw"}
-            :ref mount!}]
+                    ;:margin "auto" ; This makes the editor "separate" from the output text area"
+                    :max-width "90vw"}}
+      [:div {:style {:lineWrapping "false" :margin "auto"} :ref mount!}]]
      [:textarea
       {:class "textarea editable monospace text-sm overflow-auto m-0"
        :style {:max-width "90vw"

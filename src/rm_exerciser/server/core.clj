@@ -5,13 +5,13 @@
     [rm-exerciser.server.config :as config]
     [rm-exerciser.server.env :refer [defaults]]
 
-    ;; Edges       
+    ;; Edges
     [kit.edge.server.undertow]
     [rm-exerciser.server.web.handler]
 
     ;; Routes
     [rm-exerciser.server.web.routes.api]
-    [rm-exerciser.server.web.routes.pages]) 
+    [rm-exerciser.server.web.routes.pages])
   (:gen-class))
 
 ;; log uncaught exceptions in threads
@@ -29,12 +29,24 @@
   (some-> (deref system) (ig/halt!))
   (shutdown-agents))
 
-(defn start-app [& [params]]
+#_(defn start-app [& [params]]
   ((or (:start params) (:start defaults) (fn [])))
   (->> (config/system-config (or (:opts params) (:opts defaults) {}))
        (ig/prep)
        (ig/init)
        (reset! system))
+    (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
+
+(defn start-app [& [params]]
+  ((or (:start params) (:start defaults) (fn [])))
+  (println "before system config")
+  (let [sys (config/system-config (or (:opts params) (:opts defaults) {}))]
+    (println "after system config")
+    (log/info "after sys config")
+    (as-> sys ?sys
+      (do (log/info "before prep") (ig/prep ?sys))
+      (do (log/info "before init") (ig/init ?sys))
+    (reset! system ?sys)))
   (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
 
 (defn -main [& _]
