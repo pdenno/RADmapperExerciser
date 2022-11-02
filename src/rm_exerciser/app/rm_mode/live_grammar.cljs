@@ -1,10 +1,10 @@
-(ns rm-exerciser.app.rm-mode.live-grammar
+#_(ns rm-exerciser.app.rm-mode.live-grammar
   (:require ["@lezer/generator" :as lg]
             [shadow.resource :as rc]
             [rm-exerciser.app.rm-mode.node :as n]))
 
 ;;for dev, it's useful to build the parser in the browser
-(def parser
+#_(def parser
   (lg/buildParser
    (rc/inline "./clojure.grammar")
    #js{:externalProp n/node-prop}))

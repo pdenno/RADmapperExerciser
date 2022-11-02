@@ -17,7 +17,7 @@
            metosin/muuntaja {:mvn/version "0.6.8"} ; http encode/decode
 
            ;; kit Libs
-           io.github.kit-clj/kit-core {:mvn/version "1.0.1"}     ; very small; uses clojure.tools.logging though.
+           io.github.kit-clj/kit-core {:mvn/version "1.0.1"}     ; very small; uses clojure.tools.logging and integrant though.
            io.github.kit-clj/kit-undertow {:mvn/version "1.0.2"} ; very small.
            selmer/selmer {:mvn/version "1.12.53"} ; Probably can go, but see pages/layout.clj and routes/pages.clj.
            luminus/ring-ttl-session {:mvn/version "0.3.3"}
@@ -25,6 +25,7 @@
            ;; heart of the app
            com.github.pdenno/RADmapper {:git/sha "9ec24bff5d6bef1f32a4cffa562d087bfb4fc7f9"}
            reagent/reagent {:mvn/version "1.1.1"}
+           thheller/shadow-cljs  {:mvn/version "2.20.5"} ; ToDo: Needed for production build. Why?
            applied-science/js-interop {:mvn/version "0.3.3"}}
 
  :aliases {:build {:deps {io.github.clojure/tools.build {:git/sha "e3e3532"
