@@ -10,6 +10,6 @@ FROM azul/zulu-openjdk-alpine:17
 
 COPY --from=build /target/exerciser-standalone.jar /exerciser/exerciser-standalone.jar
 
-EXPOSE $PORT
+EXPOSE 3000
 
 ENTRYPOINT exec java $JAVA_OPTS -jar /exerciser/exerciser-standalone.jar

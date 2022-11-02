@@ -24,7 +24,7 @@
                 :version version
                 :basis basis
                 :src-dirs ["src"]})
-  (b/copy-dir {:src-dirs ["src" "resources/public" "env/prod"]
+  (b/copy-dir {:src-dirs ["src" "resources" "env/prod"]
                :target-dir class-dir}))
 
 (defn uber [_]

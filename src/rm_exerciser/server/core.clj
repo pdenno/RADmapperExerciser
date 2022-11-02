@@ -29,7 +29,7 @@
   (some-> (deref system) (ig/halt!))
   (shutdown-agents))
 
-#_(defn start-app [& [params]]
+(defn start-app [& [params]]
   ((or (:start params) (:start defaults) (fn [])))
   (->> (config/system-config (or (:opts params) (:opts defaults) {}))
        (ig/prep)
@@ -37,10 +37,10 @@
        (reset! system))
     (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
 
-(defn start-app [& [params]]
+#_(defn start-app [& [params]]
   ((or (:start params) (:start defaults) (fn [])))
   (println "before system config")
-  (let [sys (config/system-config (or (:opts params) (:opts defaults) {}))]
+  (let [sys (config/system-config (or (:opts params) (:opts defaults) {}))] ; <========== This is where the problem is!
     (println "after system config")
     (log/info "after sys config")
     (as-> sys ?sys
