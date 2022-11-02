@@ -1,14 +1,12 @@
-#FROM clojure:openjdk-17 AS build
-FROM ubuntu:22:04 AS build
-
-RUN apt-cache search wget
-RUN apt-get install wget
+# syntax = docker/dockerfile:1.2
+FROM clojure:openjdk-17 AS build
 
 WORKDIR /
 
-RUN /usr/bin/wget https://download.clojure.org/install/linux-install-1.11.1.1182.sh \
-  && chmod +x linux-install-1.11.1.1182.sh \
-  && ./linux-install-1.11.1.1182.sh
+RUN apt-get install -yq npm
+
+# RUN apt-cache search curl
+# RUN apt-get install libcurl3-gnutls
 
 # install from nodesource using apt-get
 # RUN /usr/bin/curl -sL https://deb.nodesource.com/setup | bash - && apt-get install -yq nodejs build-essential
