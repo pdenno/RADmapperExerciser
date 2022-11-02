@@ -10,7 +10,6 @@ log/
 node_modules/
 public/js
 package-lock.json
-modules/kit-modules/
 resources/migrations/
 resources/public/js/
 play/
