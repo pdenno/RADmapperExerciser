@@ -1,6 +1,5 @@
 (ns rm-exerciser.app.core
   (:require
-   #_[rad-mapper.evaluate :as ev]
    [reagent.core :as r]
    [reagent.dom :as rdom]
    ["react" :as react]
@@ -28,10 +27,13 @@
                     [$DBa ?e1 :aAttr ?aData]
                     [$DBb ?e2 :bAttr ?bData]};
 
-   $bSets := $qFn($DBa, $DBb);
+   $bSets := $qFn($DBa, $DBb);  /* Create the binding sets */
 
-   $eFn := express(){{?id : {'name' : ?name, 'aData' : ?aData, 'bData' : ?bData}}};
+   $eFn := express(){{?id : {'name'  : ?name, /* Define how to use them. */
+                             'aData' : ?aData,
+                             'bData' : ?bData}}};
 
+   /* $reduce or $map the express() */
    $reduce($bSets, $eFn) )")
 
 ;;; grid-template:
@@ -39,8 +41,7 @@
 ;;;             "d e" 40px
 ;;;             "d o" 40px / 1fr 1fr;
 (defn home-page [_s]
-  [:main  #_{:class "container"
-           :style {:width "100%" :height "100%"}}
+  [:main
    [:section.hero.is-small.is-primary
     [:div.hero-body
      [:div.title.is-large "RADmapper Exerciser"]]]
@@ -48,11 +49,10 @@
           :style {:display "grid" :padding "0px" :grid-gap "0px"
                   :grid-template-columns "auto" ; "1fr 1fr" (1fr means it can't get bigger")
                   :grid-template-rows "auto"
-                  :margin "auto"
+                  :margin "0px" ; This makes a difference on the left.
                   :height "100%"
                   :max-width "90vw"
-                  :min-width "10vw"
-                  }}
+                  :min-width "10vw"}}
     [:div {:class "item"
            :style {:grid-column-start 1
                    :grid-column-end 2
@@ -63,10 +63,10 @@
                    :min-width "10vw"
                    :height "100%"}}
      [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
-                 :style {;:max-width "90vw"
-                         ;:min-width "10vw"
-                         ;:width "100%"
-                         ;:height "100%"
+                 :style {:max-width "90vw"
+                         :min-width "10vw"
+                         :width "100%"
+                         :height "100%"
                          }}]]
     [editor init-text {:eval? true}]]])
 
@@ -89,8 +89,8 @@
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
                               :line-height "1.3"
-                              :font-size "16px"
-                              :font-family "var(--code-font)"}
+                              :font-size "15px"
+                              :font-family "'JetBrains Mono', monospace"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                          :color "inherit"}
                   ".cm-gutters" {:background "transparent"
@@ -131,7 +131,7 @@
                    :grid-row-start 1
                    ; Nested grid
                    :display "grid"
-                   :margin "auto"
+                   :margin "0px" #_"auto"
                    :grid-item-rows "auto"}}
      [:div {:class "item"
             :style {:overflow "auto"
@@ -139,15 +139,15 @@
                     :border "3px solid"
                     :scroll-x "true"
                     :lineWrapping "false"
-                    ;:margin "auto" ; This makes the editor "separate" from the output text area"
+                    :margin "0px" #_"auto" ; This makes the editor "separate" from the output text area"
                     :max-width "90vw"}}
       [:div {:style {:lineWrapping "false" :margin "auto"} :ref mount!}]]
      [:textarea
-      {:class "textarea editable monospace text-sm overflow-auto m-0"
+      {:class "textarea is-family-monospace editable monospace text-sm overflow-auto m-0"
        :style {:max-width "90vw"
                :margin "auto"
                :overflow "auto"}
-       :onChange true ; ToDo: really?
+       :onChange #(println "I'm having fun:" %) ; ToDo: Probably could be better ;^)
        :value (or (when-some [{:keys [error result]} @last-result]
                     (.log js/console (str "result = " (or result error)))
                     (if error
