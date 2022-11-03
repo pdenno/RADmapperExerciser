@@ -14,6 +14,7 @@
 
 (declare init editor)
 
+;;; ToDo: Comments were messing up parse?!?
 (def init-text
 "(  $DBa := [{'id' : 123, 'aAttr' : 'Bob-A-data',   'name' : 'Bob'},
             {'id' : 234, 'aAttr' : 'Alice-A-data', 'name' : 'Alice'}];
@@ -27,13 +28,12 @@
                     [$DBa ?e1 :aAttr ?aData]
                     [$DBb ?e2 :bAttr ?bData]};
 
-   $bSets := $qFn($DBa, $DBb);  /* Create the binding sets */
+   $bSets := $qFn($DBa, $DBb);
 
-   $eFn := express(){{?id : {'name'  : ?name, /* Define how to use them. */
+   $eFn := express(){{?id : {'name'  : ?name,
                              'aData' : ?aData,
                              'bData' : ?bData}}};
 
-   /* $reduce or $map the express() */
    $reduce($bSets, $eFn) )")
 
 ;;; grid-template:
@@ -41,33 +41,25 @@
 ;;;             "d e" 40px
 ;;;             "d o" 40px / 1fr 1fr;
 (defn home-page [_s]
-  [:main
-   [:section.hero.is-small.is-primary
-    [:div.hero-body
-     [:div.title.is-large "RADmapper Exerciser"]]]
+  [:body {:style {:width  "800px" #_(str (.-innerWidth js/window)  "px")
+                  :height "500px" #_(str (.-innerHeight js/window) "px")}}
+   [:section.hero.is-primary.is-small ; ToDo: ...but not small enough!
+    [:div.hero-body [:div.title.is-large "RADmapper Exerciser" ]]]
    [:div {:class "container"
-          :style {:display "grid" :padding "0px" :grid-gap "0px"
+          :style {:display "grid" :grid-gap "0px"
+                  :overflow "auto" ; This keep the size from following the mouse.
+                  :height "500px" ; This needed or whole-window vertical follows mouse.
                   :grid-template-columns "auto" ; "1fr 1fr" (1fr means it can't get bigger")
                   :grid-template-rows "auto"
-                  :margin "0px" ; This makes a difference on the left.
-                  :height "100%"
-                  :max-width "90vw"
-                  :min-width "10vw"}}
+                  :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+                  :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
+                  :max-width "90%"}} ; This makes a difference on the left!
     [:div {:class "item"
-           :style {:grid-column-start 1
-                   :grid-column-end 2
-                   :border "3px solid"
-                   :overflow "auto"
-                   :resize "horizontal"
-                   :max-width "90vw"
-                   :min-width "10vw"
-                   :height "100%"}}
+           :style {:grid-column-start 1  :grid-column-end 2
+                   :border "3px solid" :overflow "auto" :resize "horizontal" :height "100%"}}
      [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
-                 :style {:max-width "90vw"
-                         :min-width "10vw"
-                         :width "100%"
-                         :height "100%"
-                         }}]]
+                 :style {:overflow "auto"
+                         :width "100%" :height "100%" :resize "none"}}]] ; :resize "none" or you get another resizing controller.
     [editor init-text {:eval? true}]]])
 
 (def app-state
@@ -125,28 +117,27 @@
                                                      source)
                                                     :parent el)))))]
     [:div {:class "item container"
-           :style {:border "3px solid" :overflow "auto" ; :resize "horizontal"
-                   :grid-column-start 2
-                   :grid-column-end 3
-                   :grid-row-start 1
-                   ; Nested grid
-                   :display "grid"
-                   :margin "0px" #_"auto"
-                   :grid-item-rows "auto"}}
+           :style {:border "3px solid"
+                   :overflow "auto" ; give unwanted scroll bar, but keeps the size controlled
+                   :resize "none"
+                   :height "100%"
+                   :max-height "100%"
+                   :grid-column-start 2 :grid-column-end 3 :grid-row-start 1 :grid-item-rows "auto"
+                   #_#_#_#_#_#_:width "100%" :height "100%" :min-width "10%"}} ; These don't seem to do anything
      [:div {:class "item"
             :style {:overflow "auto"
                     :resize "vertical"
+                    :max-height "90%" ; This is keep the output textarea from disappearing. How?
+                    :min-height "10%"
                     :border "3px solid"
                     :scroll-x "true"
                     :lineWrapping "false"
-                    :margin "0px" #_"auto" ; This makes the editor "separate" from the output text area"
-                    :max-width "90vw"}}
+                    ;:margin "0px" #_"auto" ; This makes the editor "separate" from the output text area"
+                    #_#_:max-width "90%"}}  ; This only screws things up.
       [:div {:style {:lineWrapping "false" :margin "auto"} :ref mount!}]]
      [:textarea
-      {:class "textarea is-family-monospace editable monospace text-sm overflow-auto m-0"
-       :style {:max-width "90vw"
-               :margin "auto"
-               :overflow "auto"}
+      {:class "textarea is-family-monospace editable monospace text-sm m-0"
+       :style {:height "20%" :max-width "90vw" :max-height "90%" :min-height "10%" :resize "none" #_#_:overflow "auto"}
        :onChange #(println "I'm having fun:" %) ; ToDo: Probably could be better ;^)
        :value (or (when-some [{:keys [error result]} @last-result]
                     (.log js/console (str "result = " (or result error)))
