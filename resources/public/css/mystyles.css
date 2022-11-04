@@ -3811,3 +3811,6 @@ table th {
         padding: 9rem 4.5rem; }
       .section.is-large {
         padding: 18rem 6rem; } }
+
+textarea {
+  background-color: #EFF0EB; }

@@ -36,3 +36,10 @@ $input-shadow: none;
 // @import "../node_modules/bulma/sass/components/navbar.sass";
 @import "../node_modules/bulma/sass/layout/hero.sass";
 @import "../node_modules/bulma/sass/layout/section.sass";
+
+// https://sass-lang.com/guide. Not working
+textarea {
+    background-color: $beige-lighter;
+    padding-left: "30px"
+    padding-top: "30px"		  
+}

@@ -12,7 +12,7 @@
    ["@codemirror/view" :as view :refer [EditorView]]
    [applied-science.js-interop :as j]))
 
-(declare init editor)
+(declare editor last-result)
 
 ;;; ToDo: Comments were messing up parse?!?
 (def init-text
@@ -38,32 +38,57 @@
 
 ;;; ToDo: Some kind of :onResize (of the window)
 (defn home-page [_s]
-  [:body {:style {:width  #_"800px" (str (.-innerWidth js/window)  "px")
-                  :height #_"500px" (str (.-innerHeight js/window) "px")
-                  :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
-                  :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"}}
+  [:body
+   {:style {:width  #_"800px" (str (- (.-innerWidth js/window) 15)  "px")
+            :height #_"500px" (str (.-innerHeight js/window) "px")
+            :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px" ; Margins/padding useless everywhere!
+            :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"}}
    [:section.hero.is-primary.is-small ; ToDo: ...but not small enough!
     [:div.hero-body [:div.title.is-large "RADmapper Exerciser" ]]]
-   [:div {:class "container"
-          :style {:display "grid" :grid-gap "0px"
-                  :overflow "hidden" ; This needed or whole-window horizontal follows the mouse.
-                  :height "500px"    ; This needed or whole-window vertical   follows the mouse.
-                  :grid-template-columns "auto"  #_"1fr 1fr" ; (1fr means it can't get bigger ng")
-                  :grid-template-rows "auto"
-                  :border "3px solid"
-                 :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
-                 :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
-                  :max-width "90%"}} ; This makes a difference on the left!
-    [:div {:class "item"
-           :style {:grid-column-start 1  :grid-column-end 2
-                   :max-width "100%" ; Would like to do 90/10 here (with shrinks at 90%. Why?
-                   :min-width "10%"
-                   :border "3px solid" :overflow "auto" :resize "horizontal" :height "100%"}}
-     [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
-                 :style {:overflow "auto"
-                         :width "100%" :height "100%"
-                         :resize "none"}}]] ; :resize "none" or you get another resizing controller.
-    [editor init-text {:eval? true}]]])
+   [:container
+    {:style {:display "grid" :grid-gap "0px" :grid-gutter-width "0px"
+             :overflow "hidden" ; This needed or whole-window horizontal follows the mouse.
+             #_#_:grid-template-columns "auto"
+             #_#_:grid-template-rows "auto"
+             :border "3px solid"
+             :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+             :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
+             #_#_:max-width "90%"}} ; No longer makes a difference. (and doesn't work)
+    [:textarea
+      {:defaultValue "/*   Use in-lined data for the time being!  */"
+       :style {:gird-row-start    1 :gird-row-end    3
+               :grid-column-start 1 :grid-column-end 2
+               :max-width "60%" ; Would like to do 90/10 here (with shrinks at 90%. Why?
+               :min-width "10%"
+               :border "3px solid"
+               :overflow "auto"
+               :resize "horizontal"
+               :padding-left "5px"
+               :padding-top "5px"
+               #_:width "100%"
+               #_:height "100%"}}]
+    [editor init-text {:eval? true}]
+    [:textarea
+       {:class "textarea is-family-monospace editable monospace text-sm m-0"
+        :style {:grid-row-start    2 :grid-row-end    3 
+                :grid-column-start 2 :grid-column-end 3
+                :border "3px solid"
+                :height "100%"
+                :background-color "#EFF0EB" ; ToDo: Add through sass.
+                :overflow "auto"
+                ;;:max-width "100%" ; Does nothing
+                :max-height "90%" ; These match ...
+                :min-height "10%" ; the thing it is sharing with ................................WORKING!
+                :padding-left "5px"
+                :padding-top  "5px"
+                :resize "none"}
+        :onChange #(println "I'm having fun:" %) ; ToDo: Probably could be better ;^)
+        :value (or (when-some [{:keys [error result]} @last-result]
+                     (.log js/console (str "result = " (or result error)))
+                     (if error
+                       (str error)
+                       (str result)))
+                   "Ctrl-Enter above to execute.")}]]])
 
 (def app-state
   (r/atom {:rand (rand)}))
@@ -105,9 +130,10 @@
                         (.of view/keymap rm-mode/complete-keymap)
                         (.of view/keymap historyKeymap)])
 
+(def last-result (r/atom nil))
+
 (defn editor [source {:keys [eval?]}]
   (r/with-let [!view (r/atom nil)
-               last-result (r/atom nil) ; POD guessing.
                mount! (fn [el]
                         (when el
                           (reset! !view (new EditorView
@@ -115,50 +141,24 @@
                                                     (test-utils/make-state
                                                      (cond-> #js [extensions]
                                                        eval? (.concat #js [(sci-eval/extension
-                                                                                   {:modifier "Alt"
-                                                                                    :on-result (partial reset! last-result)})]))
+                                                                            {:modifier "Alt"
+                                                                             :on-result (partial reset! last-result)})]))
                                                      source)
                                                     :parent el)))))]
-    [:div {:class "item container"
-           :style {:border "3px solid"
-                   :overflow "hidden" ; gives unwanted scroll bar, but keeps the size controlled
-                   :resize "none"
-                   :height "100%"
-                   :max-height "100%"
-                   :max-width "100%" ; These match the container data textarea.................NOT WORKING!
-                   :min-width "10%" ; ...above.
-                  :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
-                  :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
-                   :grid-column-start 2 :grid-column-end 3 :grid-row-start 1 :grid-item-rows "auto"}}
-     [:div {:class "item"
-            :style {:overflow "auto"
-                    :resize "vertical"
-                    :max-height "90%" ; This is keep the output textarea from disappearing...
-                    :min-height "10%" ; and match the thing it is sharing with.................. WORKING!
-                    :max-width "100%"
-                   :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
-                   :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
-                    :border "3px solid"
-                    :scroll-x "true"
-                    :lineWrapping "false"}}
-      [:div {:style {:lineWrapping "false" :margin "auto"} :ref mount!}]]
-     [:textarea
-      {:class "textarea is-family-monospace editable monospace text-sm m-0"
-       :style {:height "20%"
-               :overflow "auto"
-               :max-width "90vw"
-               :max-height "90%" ; These match ...
-               :min-height "10%" ; the thing it is sharing with ................................WORKING!
-               :resize "none"
-               :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
-               :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"}
-       :onChange #(println "I'm having fun:" %) ; ToDo: Probably could be better ;^)
-       :value (or (when-some [{:keys [error result]} @last-result]
-                    (.log js/console (str "result = " (or result error)))
-                    (if error
-                      (str error)
-                      (str result)))
-                  "Ctrl-Enter above to execute.")}]]
-    (finally
-      (println "In finally")
-      (j/call @!view :destroy))))
+    [:item
+     {:ref mount!
+      :style {:grid-row-start    1 :grid-row-end    2
+              :grid-column-start 2 :grid-column-end 3
+              :overflow "auto"
+              :resize "vertical"
+              :max-height "90%" ; This is keep the output textarea from disappearing...
+              :min-height "10%" ; and match the thing it is sharing with.................. WORKING!
+              :max-width "100%"
+              :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+              :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
+              :border "3px solid"
+              :scroll-x "true"
+              :lineWrapping "false"}}]
+      (finally
+        (println "In finally")
+        (j/call @!view :destroy))))
