@@ -36,30 +36,33 @@
 
    $reduce($bSets, $eFn) )")
 
-;;; grid-template:
-;;;             "h h" 40px
-;;;             "d e" 40px
-;;;             "d o" 40px / 1fr 1fr;
+;;; ToDo: Some kind of :onResize (of the window)
 (defn home-page [_s]
-  [:body {:style {:width  "800px" #_(str (.-innerWidth js/window)  "px")
-                  :height "500px" #_(str (.-innerHeight js/window) "px")}}
+  [:body {:style {:width  #_"800px" (str (.-innerWidth js/window)  "px")
+                  :height #_"500px" (str (.-innerHeight js/window) "px")
+                  :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+                  :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"}}
    [:section.hero.is-primary.is-small ; ToDo: ...but not small enough!
     [:div.hero-body [:div.title.is-large "RADmapper Exerciser" ]]]
    [:div {:class "container"
           :style {:display "grid" :grid-gap "0px"
-                  :overflow "auto" ; This keep the size from following the mouse.
-                  :height "500px" ; This needed or whole-window vertical follows mouse.
-                  :grid-template-columns "auto" ; "1fr 1fr" (1fr means it can't get bigger")
+                  :overflow "hidden" ; This needed or whole-window horizontal follows the mouse.
+                  :height "500px"    ; This needed or whole-window vertical   follows the mouse.
+                  :grid-template-columns "auto"  #_"1fr 1fr" ; (1fr means it can't get bigger ng")
                   :grid-template-rows "auto"
-                  :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
-                  :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
+                  :border "3px solid"
+                 :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+                 :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
                   :max-width "90%"}} ; This makes a difference on the left!
     [:div {:class "item"
            :style {:grid-column-start 1  :grid-column-end 2
+                   :max-width "100%" ; Would like to do 90/10 here (with shrinks at 90%. Why?
+                   :min-width "10%"
                    :border "3px solid" :overflow "auto" :resize "horizontal" :height "100%"}}
      [:textarea {:defaultValue "/*   Use in-lined data for the time being!  */"
                  :style {:overflow "auto"
-                         :width "100%" :height "100%" :resize "none"}}]] ; :resize "none" or you get another resizing controller.
+                         :width "100%" :height "100%"
+                         :resize "none"}}]] ; :resize "none" or you get another resizing controller.
     [editor init-text {:eval? true}]]])
 
 (def app-state
@@ -118,26 +121,37 @@
                                                     :parent el)))))]
     [:div {:class "item container"
            :style {:border "3px solid"
-                   :overflow "auto" ; give unwanted scroll bar, but keeps the size controlled
+                   :overflow "hidden" ; gives unwanted scroll bar, but keeps the size controlled
                    :resize "none"
                    :height "100%"
                    :max-height "100%"
-                   :grid-column-start 2 :grid-column-end 3 :grid-row-start 1 :grid-item-rows "auto"
-                   #_#_#_#_#_#_:width "100%" :height "100%" :min-width "10%"}} ; These don't seem to do anything
+                   :max-width "100%" ; These match the container data textarea.................NOT WORKING!
+                   :min-width "10%" ; ...above.
+                  :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+                  :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
+                   :grid-column-start 2 :grid-column-end 3 :grid-row-start 1 :grid-item-rows "auto"}}
      [:div {:class "item"
             :style {:overflow "auto"
                     :resize "vertical"
-                    :max-height "90%" ; This is keep the output textarea from disappearing. How?
-                    :min-height "10%"
+                    :max-height "90%" ; This is keep the output textarea from disappearing...
+                    :min-height "10%" ; and match the thing it is sharing with.................. WORKING!
+                    :max-width "100%"
+                   :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+                   :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
                     :border "3px solid"
                     :scroll-x "true"
-                    :lineWrapping "false"
-                    ;:margin "0px" #_"auto" ; This makes the editor "separate" from the output text area"
-                    #_#_:max-width "90%"}}  ; This only screws things up.
+                    :lineWrapping "false"}}
       [:div {:style {:lineWrapping "false" :margin "auto"} :ref mount!}]]
      [:textarea
       {:class "textarea is-family-monospace editable monospace text-sm m-0"
-       :style {:height "20%" :max-width "90vw" :max-height "90%" :min-height "10%" :resize "none" #_#_:overflow "auto"}
+       :style {:height "20%"
+               :overflow "auto"
+               :max-width "90vw"
+               :max-height "90%" ; These match ...
+               :min-height "10%" ; the thing it is sharing with ................................WORKING!
+               :resize "none"
+               :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px"
+               :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"}
        :onChange #(println "I'm having fun:" %) ; ToDo: Probably could be better ;^)
        :value (or (when-some [{:keys [error result]} @last-result]
                     (.log js/console (str "result = " (or result error)))
