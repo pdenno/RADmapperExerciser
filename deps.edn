@@ -23,7 +23,7 @@
            luminus/ring-ttl-session {:mvn/version "0.3.3"}
 
            ;; heart of the app
-           com.github.pdenno/RADmapper {:git/sha "9ec24bff5d6bef1f32a4cffa562d087bfb4fc7f9"}
+           com.github.pdenno/RADmapper {:git/sha "0aeb1648ce853f67e003e43c362a71487a3eb315" #_"9ec24bff5d6bef1f32a4cffa562d087bfb4fc7f9"}
            reagent/reagent {:mvn/version "1.1.1"}
            thheller/shadow-cljs  {:mvn/version "2.20.5"} ; ToDo: Needed for production build. Why?
            applied-science/js-interop {:mvn/version "0.3.3"}}
