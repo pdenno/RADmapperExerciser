@@ -38,24 +38,21 @@
 
 ;;; ToDo: Some kind of :onResize (of the window)
 (defn home-page [_s]
-  [:body
-   {:style {:width  "auto" #_"100%" #_(str (- (.-innerWidth  js/window)  15) "px") ; https://ishadeed.com/article/auto-css/
-            :height "auto" #_"100%" #_(str (- (.-innerHeight js/window) 100) "px")
+  [:div
+   {:style {#_:width  #_"auto" #_"100%" #_(str (- (.-innerWidth  js/window)  15) "px") ; https://ishadeed.com/article/auto-css/
+            #_:height #_"auto" #_"100%" #_(str (- (.-innerHeight js/window) 100) "px")
             :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px" ; Margins/padding useless everywhere!
             :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
-            :border "3px dotted red"}}
+            :border "3px solid" #_"3px dotted red"}}
    [:section.hero.is-primary.is-small ; ToDo: ...but not small enough!
     [:div.hero-body [:div.title.is-large "RADmapper Exerciser" ]]]
-   [:container
-    {:componentDidMount #(println "mounting!:" %)
-     :onMount #(println "rmmmesizing container!:" %)
-     :onChange #(println "resizing container!:" %)
-     :style {:display "grid"
+   [:container ; Warning: The tag <container> is unrecognized in this browser.
+    {:style {:display "grid"
              :grid-template-areas "\"data  editor\" \n \"data output\""
              :grid-template-columns "auto-fit auto-fit" ; Does nothing
              :grid-template-row     "auto-fit auto-fit"
-             ;;:grid-template-columns "repeat(auto-fit, minmax(200px,1fr) )" ; Cause overrun (as though the LHS isn't ther)
-             ;;:grid-template-row     "repeat(auto-fit, minmax(200px,1fr) )"
+             ;:grid-template-columns "repeat(auto-fit, minmax(200px,1fr) )" ; Cause overrun (as though the LHS isn't there).
+             ;:grid-template-row     "repeat(auto-fit, minmax(200px,1fr) )"
              :grid-column-gap "0px"
              :grid-row-gap "0px"
              :grid-gutter-width  "0px" ; Does nothing.
@@ -63,9 +60,8 @@
              :overflow "hidden" ; This needed or whole-window horizontal follows the mouse.
              :height "100%"     ; This needed or whole-window vertical   follows the mouse. <============ STILL
              :border "3px solid"}}
-    [:item
-     {:on-change #(println "resizing item!:" %)
-      :style {:grid-area "data"
+    [:div.item
+     {:style {:grid-area "data"
               :flex "1 1 auto"
               :display "flex"
               :resize "horizontal"
@@ -75,8 +71,8 @@
      [:textarea
       {:defaultValue "/* FACTORED  Use in-lined data for the time being!  */"
        :onChange #(println "resizing textarea!:" %)
-       :style {:width "auto" #_"100%"
-               :height "100%"
+       :style {#_#_:width "auto" #_"100%"
+               #_#_:height "100%"
                :flex "1 1 auto"
                :object-fit "cover"
                :border "3px solid"
@@ -85,13 +81,15 @@
                :padding-top "5px"
                :resize "auto"}}]]
     [editor init-text {:eval? true}]
-    [:item
+    [:div.item
      {:style {:grid-area "output"
               :display "flex"
               :flex "1 1 auto"
               :justify-content "stretch"
               :object-fit "cover"
-              :border "3px dotted green" :overflow "hidden" :resize "none"}}
+              :border "3px solid" #_"3px dotted green"
+              :overflow "hidden"
+              :resize "none"}}
      [:textarea
       {:style {:display "flex"
                :height "100%"
@@ -127,7 +125,7 @@
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
                               :line-height "1.3"
-                              :font-size "15px"
+                              :font-size "13px"
                               :font-family "'JetBrains Mono', monospace"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                          :color "inherit"}
@@ -163,7 +161,7 @@
                                                                              :on-result (partial reset! last-result)})]))
                                                      source)
                                                     :parent el)))))]
-    [:item
+    [:div.item
      {:style {:grid-area "editor"
               :display "flex"
               :flex "1 1 auto" ; Or "1 1 0"  https://ishadeed.com/article/auto-css/
