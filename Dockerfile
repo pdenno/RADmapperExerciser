@@ -1,9 +1,9 @@
-FROM debian:bullseye
+FROM debian
 
 # Purpose: Build RADmapper exerciser including fresh app.js (using shadow-cljs).
 
 # ToDo:
-#   - The above is NOT where I'd like to start!
+#   - The above (debian:bullseye) is NOT where I'd like to start!
 #     See  https://github.com/Quantisan/docker-clojure/blob/master/target/debian-bullseye-17/tools-deps/Dockerfile
 #     What is the image being made?
 
