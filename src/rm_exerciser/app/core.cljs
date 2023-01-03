@@ -1,6 +1,6 @@
 (ns rm-exerciser.app.core
   (:require
-   [reagent.core :as r]
+   [reagent.core :as reagent]
    [reagent.dom :as rdom]
    ["react" :as react]
    [rm-exerciser.app.rm-mode :as rm-mode]
@@ -10,7 +10,18 @@
    ["@codemirror/commands" :refer [history historyKeymap]]
    ["@codemirror/state" :refer [EditorState]]
    ["@codemirror/view" :as view :refer [EditorView]]
-   [applied-science.js-interop :as j]))
+   [applied-science.js-interop :as j]
+   ;; ------------ stuff from helix experiment ----------------------------------
+   ["@mui/material/Typography$default" :as Typography]
+   ["@mui/material/TextField$default" :as TextField]
+   ["@mui/material/Stack$default" :as Stack]
+   ["@mui/material/styles" :as styles]
+   ;["@mui/material/CssBaseline" :as CssBaseline]
+   ["@mui/material/colors" :as colors]
+   [rm-exerciser.app.components.share :refer [ShareUpDown ShareLeftRight]]
+   [helix.core :refer [defnc $ <>]]
+   [helix.dom :as d]
+   ["react-dom/client" :as react-dom]))
 
 (declare editor last-result)
 
@@ -36,12 +47,27 @@
 
    $reduce($bSet, $eFn) )")
 
-;;; ToDo: Some kind of :onResize (of the window)
+(def exerciser-theme
+  (styles/createTheme
+   (j/lit {#_#_:palette {:primary   colors/yellow
+                         :secondary colors/green}
+           :components {:MuiDivider
+                        {:variants [{:props {:variant "active-vert" } ; vertical divider of horizontal layout
+                                     :style {:cursor "ew-resize"
+                                             :color "black"
+                                             :width 5}}
+                                    {:props {:variant "active-horiz" } ; vertical divider of horizontal layout
+                                     :style {:cursor "ns-resize"
+                                             :color "black"
+                                             :height 5}}]}
+                        :MuiTextField
+                        {:variants [{:props {:variant "data-editor"}
+                                     #_#_:style {:multiline true
+                                             :width 200}}]}}})))
+
 (defn home-page [_s]
   [:div
-   {:style {#_:width  #_"auto" #_"100%" #_(str (- (.-innerWidth  js/window)  15) "px") ; https://ishadeed.com/article/auto-css/
-            #_:height #_"auto" #_"100%" #_(str (- (.-innerHeight js/window) 100) "px")
-            :margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px" ; Margins/padding useless everywhere!
+   {:style {:margin-left  "0px" :margin-right "0px"  :margin-top "0px"  :margin-bottom "0px" ; Margins/padding useless everywhere!
             :padding-left "0px" :padding-right "0px" :padding-top "0px" :padding-bottom "0px"
             :border "3px solid" #_"3px dotted red"}}
    [:section.hero.is-primary.is-small ; ToDo: ...but not small enough!
@@ -51,8 +77,6 @@
              :grid-template-areas "\"data  editor\" \n \"data output\""
              :grid-template-columns "auto-fit auto-fit" ; Does nothing
              :grid-template-row     "auto-fit auto-fit"
-             ;:grid-template-columns "repeat(auto-fit, minmax(200px,1fr) )" ; Cause overrun (as though the LHS isn't there).
-             ;:grid-template-row     "repeat(auto-fit, minmax(200px,1fr) )"
              :grid-column-gap "0px"
              :grid-row-gap "0px"
              :grid-gutter-width  "0px" ; Does nothing.
@@ -71,9 +95,7 @@
      [:textarea
       {:defaultValue "/* FACTORED  Use in-lined data for the time being!  */"
        :onChange #(println "resizing textarea!:" %)
-       :style {#_#_:width "auto" #_"100%"
-               #_#_:height "100%"
-               :flex "1 1 auto"
+       :style {:flex "1 1 auto"
                :object-fit "cover"
                :border "3px solid"
                :overflow "auto"
@@ -82,50 +104,26 @@
                :resize "auto"}}]]
     [editor init-text {:eval? true}]
     [:div.item
-     {:style {:grid-area "output"
-              :display "flex"
-              :flex "1 1 auto"
-              :justify-content "stretch"
-              :object-fit "cover"
-              :border "3px solid" #_"3px dotted green"
-              :overflow "hidden"
-              :resize "none"}}
      [:textarea
-      {:style {:display "flex"
-               :height "100%"
-               :width "100%"
-               :background-color "#EFF0EB" ; ToDo: Add through sass.
-               :overflow "auto"
-               :padding-left "5px"
-               :padding-top  "5px"
-               :resize "none"}
         :onChange #(println "I'm having fun:" %) ; ToDo: Probably could be better ;^)
         :value (or (when-some [{:keys [error result]} @last-result]
                      (.log js/console (str "result = " (or result error)))
                      (if error
                        (str error)
                        (str result)))
-                   "Ctrl-Enter above to execute.")}]]]])
-
-(def app-state
-  (r/atom {:rand (rand)}))
-
-(defn ^:dev/after-load mount-root []
-  (rdom/render [home-page app-state] (.getElementById js/document "app")))
-
-(defn ^:export ^:dev/once init! [] (mount-root))
+                   "Ctrl-Enter above to execute.")]]]])
 
 ;;;------------------------------------------
 ;;; https://codemirror.net/examples/styling/
-(def theme
+(def editor-theme
   (.theme EditorView
           (j/lit {".cm-content" {:white-space "pre-wrap"
                                  :padding "10px 0"
                                  :flex "1 1 0"}
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
-                              :line-height "1.3"
-                              :font-size "13px"
+                              :line-height "1.1"
+                              :font-size "11px"
                               :font-family "'JetBrains Mono', monospace"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                          :color "inherit"}
@@ -136,7 +134,7 @@
                   ".cm-cursor" {:visibility "hidden"}
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
-(defonce extensions #js[theme
+(defonce extensions #js[editor-theme
                         (history)
                         (syntaxHighlighting defaultHighlightStyle)
                         (view/drawSelection)
@@ -146,35 +144,71 @@
                         (.of view/keymap rm-mode/complete-keymap)
                         (.of view/keymap historyKeymap)])
 
-(def last-result (r/atom nil))
+(def last-result (reagent/atom nil))
 
 (defn editor [source {:keys [eval?]}]
-  (r/with-let [!view (r/atom nil)
-               mount! (fn [el]
-                        (when el
-                          (reset! !view (new EditorView
-                                             (j/obj :state
-                                                    (test-utils/make-state
-                                                     (cond-> #js [extensions]
-                                                       eval? (.concat #js [(sci-eval/extension
-                                                                            {:modifier "Alt"
-                                                                             :on-result (partial reset! last-result)})]))
-                                                     source)
-                                                    :parent el)))))]
-    [:div.item
-     {:style {:grid-area "editor"
-              :display "flex"
-              :flex "1 1 auto" ; Or "1 1 0"  https://ishadeed.com/article/auto-css/
-              :width "100%"
-              :height "100%"
-              :flex-basis "auto"
-              :justify-content "stretch"
-              :resize "vertical"
-              :overflow "auto"
-              :object-fit "cover"
-              :border "3px solid"
-              :scroll-x "true" }}
-     [:div {:ref mount! :style {:display "flex" :object-fit "cover" :lineWrapping "false" :margin "auto"}}]]
-      (finally
+  (reagent/with-let
+    [!view (reagent/atom nil)
+     mount! (fn [el]
+              (when el
+                (reset! !view (new EditorView
+                                   (j/obj :state
+                                          (test-utils/make-state
+                                           (cond-> #js [extensions]
+                                             eval? (.concat #js [(sci-eval/extension
+                                                                  {:modifier "Alt"
+                                                                   :on-result (partial reset! last-result)})]))
+                                           source)
+                                          :parent el)))))]
+    (d/div {:ref mount! :style {:display "flex" :object-fit "cover" :lineWrapping "false" :margin "auto"}})
+    #_(finally
         (println "In finally")
         (j/call @!view :destroy))))
+
+;;;------------------------------------------------------------------------------
+(defnc form []
+  ($ Stack {:direction "column"
+            :spacing   0}
+     ($ Typography {:variant         "h4"
+                    :color           "white"
+                    :backgroundColor "primary.main"
+                    :padding         "2px 0 2px 30px"
+                    :noWrap  false}
+        "RADmapper")
+     ($ ShareLeftRight
+        {:heigth "100%"
+         :left  ($ TextField {#_#_:variant "data-editor"
+                              :multiline true
+                              :fullWidth true
+                              :placeholder "Use in-lined data for the time being!"
+                              :width  "200px" ; Does nothing.
+                              :height "200px"})
+         :right ($ ShareUpDown
+                   {:up   (d/div (editor init-text {:eval? true}))
+                    :down ($ TextField {:multiline true
+                                        :fullWidth true
+                                        :value (or (when-some [{:keys [error result]} @last-result]
+                                                     (.log js/console (str "result = " (or result error)))
+                                                     (if error
+                                                       (str error)
+                                                       (str result)))
+                                                   "Ctrl-Enter above to execute.")})})})))
+
+(defnc app []
+  {:helix/features {:check-invalid-hooks-usage true}}
+  (<> ; https://reactjs.org/docs/react-api.html#reactfragment
+   #_(d/div (editor init-text {:eval? true}))
+   ;(CssBaseline) ; ToDo: Investigate purpose of CssBaseline.
+   ($ styles/ThemeProvider
+      {:theme exerciser-theme}
+      ($ form))))
+
+(def app-state  (reagent/atom {:rand (rand)}))
+
+(defonce root (react-dom/createRoot (js/document.getElementById "app")))
+
+(defn ^{:after-load true, :dev/after-load true} mount-root []
+  (.render root ($ app)))
+
+(defn ^:export init []
+  (mount-root))
