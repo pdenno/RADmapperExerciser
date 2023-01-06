@@ -27,7 +27,8 @@
            reagent/reagent {:mvn/version "1.1.1"}
 
            ;; heart of the app
-           com.github.pdenno/RADmapper {:git/sha "24034e40411f2821edeee440a75d2a85a8aa40c4"}
+           ;;com.github.pdenno/RADmapper {:git/sha "24034e40411f2821edeee440a75d2a85a8aa40c4"}
+           com.github.pdenno/rad-mapper {:mvn/version "1.0.160"}
            thheller/shadow-cljs  {:mvn/version "2.20.5"} ; ToDo: Needed for production build. Why?
            applied-science/js-interop {:mvn/version "0.3.3"}}
 

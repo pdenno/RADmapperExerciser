@@ -1,10 +1,11 @@
 (ns rm-exerciser.app.core
   (:require
+   [clojure.string :as str]
    [rm-exerciser.app.rm-mode :as rm-mode]
    [rm-exerciser.app.rm-mode.test-utils :as test-utils]
-   [rm-exerciser.app.sci-eval :as sci-eval]
+   #_[rm-exerciser.app.sci-eval :as sci-eval]
    [rad-mapper.evaluate :as ev]
-   [rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
+   #_[rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
    ["@codemirror/commands" :refer [history historyKeymap]]
    ["@codemirror/state" :refer [EditorState]]
@@ -24,6 +25,9 @@
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
+(def diag (atom {}))
+
+;;; ToDo: Get rid of shape.borderRadius. See https://mui.com/material-ui/customization/default-theme/?expand-path=$.typography
 (def exerciser-theme
   (styles/createTheme
    (j/lit {#_#_:palette {:primary   colors/yellow
@@ -66,13 +70,13 @@
                   ".cm-cursor" {:visibility "hidden"}
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
-;;; ToDo: Comments were messing up parse?!?
 (def init-data
 "   $DBa := [{'email' : 'bob@example.com', 'aAttr' : 'Bob-A-data',   'name' : 'Bob'},
             {'email' : 'alice@alice.org', 'aAttr' : 'Alice-A-data', 'name' : 'Alice'}];
 
    $DBb := [{'id' : 'bob@example.com', 'bAttr' : 'Bob-B-data'},
             {'id' : 'alice@alice.org', 'bAttr' : 'Alice-B-data'}];")
+#_(def init-data "***small data ***")
 
 (def init-code
 "( $qFn :=  query(){[$DBa ?e1 :email ?id]
@@ -89,6 +93,7 @@
 
    $reduce($bSet, $eFn) )")
 
+;;; ~/Documents/git/clojure/clojure-mode/demo/src/nextjournal/clojure_mode/demo.cljs
 (defonce extensions #js[editor-theme
                         (history)
                         (syntaxHighlighting defaultHighlightStyle)
@@ -99,71 +104,75 @@
                         (.of view/keymap rm-mode/complete-keymap)
                         (.of view/keymap historyKeymap)])
 
-(def last-result (atom nil))
-(def diag (atom {}))
+(def user-data-atm "Set as a hook effect for use in RM evaluation." (atom nil))
+(def data-editor-atm "Set to the data editor object" (atom nil)) ; ToDo: Find a more react idiomatic way to do this.
+(defn get-user-data [] (.toString (j/get (j/get @data-editor-atm .state) .doc)))
 
-;;; Unfinished
-#_(defn run-thing [{:keys [modifier on-result]}]
-   ;;(let [on-result ^:js {:keys [state]}]
+(defn run-code
+  "ev/processRM the source, returning a map containing :result or :error."
+  [source]
+  (when-some [code (not-empty (str/trim source))]
+    (log/info "eval-string: code = " code)
+    (let [result (try {:result (ev/processRM
+                                :ptag/exp
+                                code
+                                {:execute? true :sci? true
+                                 :user-data (get-user-data)})}
+                      (catch js/Error e {:result (str "Error: " (.-message e)) :is-error? true}))]
+      (log/info "eval-string: result = " result)
+      result)))
+
+(j/defn eval-cell
+  "Note that this is run for side-effect on-result."
+  [on-result ^:js {:keys [state]}]
+  (-> (.-doc state)
+      (str)
+      (run-code)
+      (on-result))
+  true)
+
+(defn extension [{:keys [on-result]}]
   (log/info "sci-eval Extension")
   (.of view/keymap
        (j/lit
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
-;;; I pass editor-state so as not to iterative append the init-code.
-(defnc EditorStack [{:keys [user-data editor-state result]}]
-  ($ ShareUpDown
-     {:up ($ MuiBox
-             {:ref (fn [el]
-                     (when el
-                       (new EditorView ; https://codemirror.net/docs/ref/
-                             (j/obj :state editor-state :parent el))))})
-      :down ($ TextField {:multiline true
-                          :minRows 4
-                          :fullWidth true
-                          :placeholder "Ctrl-Enter above to execute."
-                          :value (:result result)})}))
-
-(def initialized? (atom false))
+(def initialized? "Use to suppress adding init-{data/code} to editors" (atom false)) ; ToDo: Find a more react-idiomatic approach???
 
 (defnc Top []
-  (let [[user-data set-user-data] (hooks/use-state {:data-str init-data})
-        [result set-result] (hooks/use-state {:result "Ctrl-Enter above to execute." :error false})
-        editor-state (test-utils/make-state
-                      (-> #js [extensions]
-                          (.concat #js [(sci-eval/extension
-                                         {:modifier "Alt"
-                                          :on-result set-result})])) ; <========== Wrap set-result here. (at least for diagnostics).
-                      (if @initialized? "" init-code))]
-    (hooks/use-effect [result]
-       (js/console.log "I run when result changes: result =" (:result result)))
+  (let [[result set-result] (hooks/use-state {:result "Ctrl-Enter above to execute." :error false})
+        code-editor-state (test-utils/make-state
+                           (-> #js [extensions] (.concat #js [(extension {:on-result set-result})]))
+                           (if @initialized? "" init-code))
+        data-editor-state (test-utils/make-state
+                           #js [extensions]
+                           (if @initialized? "" init-data))]
     (reset! initialized? true)
     ($ Stack {:direction "column" :spacing 0}
        ($ Typography
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
-          "RADmapper") ; <==== Nice, but not what I can do to the following with variant subtitle1.
+          "RADmapper")
        ($ ShareLeftRight
-          {:left  ($ TextField {#_#_:variant "data-editor" ; Invalid prop `variant` of value `data-editor` supplied to `ForwardRef`,
-                                :multiline   true      ; expected one of ["filled","outlined","standard"].
-                                :fullWidth   true
-                                :minRows     15
-                                :placeholder "Use in-lined data for the time being!"
-                                :onChange    (fn [& _args]
-                                               (set-user-data {:data-str (str user-data " ")})) ; At least a trivial change is required
-                                :width       "200px" ; Does nothing.
-                                :height      "200px"
-                                :value        (:data-str user-data)})
-
-           :right ($ EditorStack
-                     {:user-data user-data
-                      :editor-state editor-state
-                      :result result})}))))
+          {:left ($ MuiBox {:ref (fn [el]
+                                   (when el
+                                     (reset! data-editor-atm
+                                             (new EditorView ; https://codemirror.net/docs/ref/
+                                                  (j/obj :state data-editor-state :parent el)))))})
+           :right ($ ShareUpDown
+                     {:up ($ MuiBox {:ref (fn [el]
+                                            (when el
+                                              (new EditorView ; https://codemirror.net/docs/ref/
+                                                   (j/obj :state code-editor-state :parent el))))})
+                      :down ($ TextField {:multiline true  ; :borderRadius 0
+                                          :minRows 4
+                                          :fullWidth true
+                                          :placeholder "Ctrl-Enter above to execute."
+                                          :value (:result result)})})}))))
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
   (<> ; https://reactjs.org/docs/react-api.html#reactfragment
-   #_(d/div (editor init-text {:eval? true}))
    ;; https://mui.com/material-ui/react-css-baseline/
    ;;(CssBaseline) ; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
    ($ styles/ThemeProvider
