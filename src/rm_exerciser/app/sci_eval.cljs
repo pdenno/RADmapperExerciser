@@ -10,12 +10,12 @@
 (defn eval-string
   [source]
   (when-some [code (not-empty (str/trim source))]
-    (log/info "eval-string" code)
-    (try {:result (ev/processRM :ptag/exp code {:execute? true :sci? true})}
+    (log/info "eval-string: code = " code)
+    (try {:result "***This result***"} ;(ev/processRM :ptag/exp code {:execute? true :sci? true})}
          (catch js/Error e
             {:error (str (.-message e))}))))
 
-(j/defn eval-at-cursor [on-result ^:js {:keys [state]}]
+#_(j/defn eval-at-cursor [on-result ^:js {:keys [state]}]
   (some->> (eval-region/cursor-node-string state)
            (eval-string)
            (on-result))
@@ -53,6 +53,6 @@
        (j/lit
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}
-         {:key (str modifier "-Enter")
-          :shift (partial eval-top-level on-result)
+         #_{:key (str modifier "-Enter")
+          :shift (partial eval-top-level on-result)     ; ToDo: I'm using modifier='Alt'
           :run (partial eval-at-cursor on-result)}])))
