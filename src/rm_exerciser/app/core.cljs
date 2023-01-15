@@ -106,6 +106,7 @@
 
 (def user-data-atm "Set as a hook effect for use in RM evaluation." (atom nil))
 (def data-editor-atm "Set to the data editor object" (atom nil)) ; ToDo: Find a more react idiomatic way to do this.
+;;; https://stackoverflow.com/questions/10285301/how-to-get-the-value-of-codemirror-textarea
 (defn get-user-data [] (.toString (j/get (j/get @data-editor-atm .state) .doc)))
 
 (defn run-code
