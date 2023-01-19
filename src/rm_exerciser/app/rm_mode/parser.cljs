@@ -1,4 +1,4 @@
-(ns rm-exerciser.app.rm-mode
+(ns rm-exerciser.app.rm-mode.parser
   (:require
    [rad-mapper.evaluate :as ev]
    ["@lezer/highlight" :as highlight :refer [tags]]
@@ -40,7 +40,7 @@
             :LineComment (.-lineComment tags)
             :RegExp (.-regexp tags)}))
 
-(defn parse
+(defn parse ; Not used!
   "Wrapper over ev/processRM"
   [text]
   (try

@@ -1,14 +1,17 @@
-(ns rm-exerciser.app.rm-mode.test-utils
+(ns rm-exerciser.app.rm-mode.state
   (:require ["@codemirror/state" :as cm-state
              :refer [EditorState EditorSelection Extension StateCommand
                      ChangeSet ChangeDesc TransactionSpec StrictTransactionSpec]]
             [applied-science.js-interop :as j]
             [clojure.string :as str]
-            [rm-exerciser.app.rm-mode.extensions.formatting :as format]))
+            [rm-exerciser.app.rm-mode.extensions.formatting :as format]
+            [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 ;; (de)serialize cursors| and <selections> for testing
 
-(defn make-state [extensions doc]
+;;; Original
+#_(defn make-state [extensions doc]
+  ;; In RM doc returns here is doc input and ranges = []. So this does nothing.
   (let [[doc ranges] (->> (re-seq #"\||<[^>]*?>|[^<>|]+" doc)
                           (reduce (fn [[^string doc ranges] match]
                                     (cond (= match "|")
@@ -21,6 +24,8 @@
                                                                 (+ (count doc) (- (count match) 2))))]
                                           :else
                                           [(str doc match) ranges])) ["" []]))]
+    (log/info "3333333333333333 ranges = " ranges)
+    ;; https://www.programcreek.com/typescript/?api=@codemirror/view.EditorView (search for new EditorView)
     (.create EditorState
              #js{:doc doc
                  :selection (if (seq ranges)
@@ -30,6 +35,16 @@
                                extensions
                                (j/push! extensions))})))
 
+(defn make-state [extensions doc]
+    ;; https://www.programcreek.com/typescript/?api=@codemirror/view.EditorView (search for new EditorView)
+    (.create EditorState
+             #js{:doc doc
+                 :selection js/undefined
+                 :extensions (cond-> #js[(.. EditorState -allowMultipleSelections (of true))]
+                               extensions
+                               (j/push! extensions))}))
+
+
 (defn state-str [^js state]
   (let [doc (str (.-doc state))]
     (->> (.. state -selection -ranges)
@@ -38,13 +53,6 @@
                    (if empty
                      (str (subs doc 0 from) "|" (subs doc from))
                      (str (subs doc 0 from) "<" (subs doc from to) ">" (subs doc to)))) doc))))
-
-(comment
- (-> (make-state #js[] "<a>b|c<d\n>a<b>c|")
-     (state-str)
-     (= "<a>b|c<d\n>a<b>c|"))
-
- )
 
 (defn apply-cmd [extensions cmd doc]
   (let [state (make-state extensions doc)

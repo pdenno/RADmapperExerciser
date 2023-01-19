@@ -31,8 +31,8 @@
   },
   "scripts": {
       "test": "echo \"Error: no test specified\" && exit 1",
-      "watch": "shadow-cljs -d nrepl/nrepl:1.0.0 -d cider/piggieback:0.5.3 -d cider/cider-nrepl:0.28.5 watch frontend",
-      "server": "clj -A:dev -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"1.0.0\"} cider/cider-nrepl {:mvn/version \"0.28.5\"}} :aliases {:cider/nrepl {:main-opts [\"-m\" \"nrepl.cmdline\" \"--middleware\" \"[cider.nrepl/cider-middleware]\"]}}}' -M:cider/nrepl"
+      "exer-client": "shadow-cljs -d nrepl/nrepl:1.0.0 -d cider/piggieback:0.5.3 -d cider/cider-nrepl:0.28.5 watch frontend",
+      "exer-server": "clj -A:dev -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"1.0.0\"} cider/cider-nrepl {:mvn/version \"0.28.5\"}} :aliases {:cider/nrepl {:main-opts [\"-m\" \"nrepl.cmdline\" \"--middleware\" \"[cider.nrepl/cider-middleware]\"]}}}' -M:cider/nrepl"
   },
   "author": "Peter Denno",
   "license": "ISC"
