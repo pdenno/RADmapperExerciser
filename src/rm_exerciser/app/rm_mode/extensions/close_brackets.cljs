@@ -20,15 +20,16 @@
 
 (defn backspace-backoff [state from to]
   (if
-   ;; handle line-comments (backspace should not drag forms up into line comments)
-   (and
-    ;; we are directly in front of a line-comment
-    (some-> (n/node| state (dec from)) (u/guard n/line-comment?))
-    ;; current line is blank
-    (not (str/blank? (u/line-content-at state from))))
+      ;; handle line-comments (backspace should not drag forms up into line comments)
+      (and
+       ;; we are directly in front of a line-comment
+       (some-> (n/node| state (dec from)) (u/guard n/line-comment?))
+       ;; current line is blank
+       (not (str/blank? (u/line-content-at state from))))
     {:cursor (dec from)}
     (u/deletion from to)))
 
+;;; ToDo: Problems here reported in console.
 (j/defn handle-backspace
   "- skips over closing brackets
    - when deleting an opening bracket of an empty list, removes both brackets"

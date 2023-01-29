@@ -3,9 +3,7 @@
    [clojure.string :as str]
    [rm-exerciser.app.rm-mode.parser :as parser]
    [rm-exerciser.app.rm-mode.state :as state]
-   #_[rm-exerciser.app.sci-eval :as sci-eval]
    [rad-mapper.evaluate :as ev]
-   #_[rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
    ["@codemirror/commands" :refer [history historyKeymap]]
    ["@codemirror/state" :refer [EditorState]]
@@ -22,7 +20,7 @@
    [rm-exerciser.app.components.share :refer [ShareUpDown ShareLeftRight]]
    [helix.core :refer [defnc $ <>]]
    [helix.hooks :as hooks]
-   [helix.dom :as d]
+   ;[helix.dom :as d]
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
@@ -56,16 +54,39 @@
                                      #_#_:style {:multiline true
                                                  :width 200}}]}}})))
 
+
+;;; https://codemirror.net/docs/ref/
+;;; The most important modules are state, which contains the data structures that model the editor state, and
+;;; view, which provides the UI component for an editor
+
+;;; https://codemirror.net/docs/ref/#state.EditorStateConfig.extensions
+;;; The editor state class is a persistent (immutable) data structure.
+;;; To update a state, you create a transaction, which produces a new state instance, without modifying the original object.
+;;;As such, never mutate properties of a state directly. That'll just break things.
+
 ;;; https://codemirror.net/examples/styling/
 ;;; https://github.com/FarhadG/code-mirror-themes/tree/master/themes
 (def editor-theme
   (.theme EditorView
           (j/lit {".cm-content" {:white-space "pre-wrap"
                                  :padding "5px 0"
-                                 :height "fit-content !important" ; guessing does nothing
+                                 ;;:height "fit-content !important" ; guessing does nothing
+                                 :height "auto"
                                  :maxLines 3 ; guessing does nothing.
                                  :flex "1 1 0"}
-                  ;".cm-linenumber" {:color "#969896"} ; guessing from FarhadG
+                  ;;".CodeMirror-linenumber" { :color "#9933CC"} ; FarhadG does nothing
+                  ;;".CodeMirror" {:border "1px solid #eee"             ; https://codemirror.net/5/demo/resize.html
+                  ;;               :height "auto"}
+                  ;; https://discuss.codemirror.net/t/codemirror-6-setting-a-minimum-height-but-allow-the-editor-to-grow/2520/7
+                  ;;".cm-gutters" {:min-height "150px"
+                  ;;               :margin "1px" }
+                  ".cm-scroller" {:overflow "auto"}
+                  ".cm-wrap"     {:border "1px solid silver"}
+                  ;; End from discuss.
+
+
+                  ".cm-comment" {:color "#9933CC"}
+                  ;;".cm-linenumber" {:color "#969896"} ; guessing from FarhadG
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
                               :line-height "1.1"
@@ -92,7 +113,7 @@
 #_(def init-data "***small data ***")
 
 (def init-code
-"( $qFn :=  query(){[$DBa ?e1 :email ?id]
+   "( $qFn :=  query(){[$DBa ?e1 :email ?id]
                    [$DBb ?e2 :id    ?id]
                    [$DBa ?e1 :name  ?name]
                    [$DBa ?e1 :aAttr ?aData]
@@ -119,14 +140,37 @@
 
 (def user-data-atm "Set as a hook effect for use in RM evaluation." (atom nil))
 (def data-editor-atm "Set to the data editor object" (atom nil)) ; ToDo: Find a more react idiomatic way to do this.
+(def code-editor-atm (atom nil))
 
 ;;; Problem: This is using the atom data-editor-atm, which isn't reliable for some reason.
+;;; The following is from https://codemirror.net/docs/migration/
+;;; Similar task to that below:
+;;;  Doc operations
+;;;    cm.state.sliceDoc(a, b)
+;;;    cm.state.doc.line(n + 1).text
+;;;    cm.state.doc.lines         (This one is line count.)
+;;; Selection operations
+;;;    cm.state.selection.main.head   (get cursor)
+;;;    cm.state.sliceDoc(cm.state.selection.main.from, cm.state.selection.main.to)
+;;;    cm.state.selection.ranges.map(r => cm.state.sliceDoc(r.from, r.to))
 (defn get-user-data
   "Return the string content of the data editor."
   []
   ;; https://stackoverflow.com/questions/10285301/how-to-get-the-value-of-codemirror-textarea
+  ;; See also the very helpful https://codemirror.net/docs/migration/ (section "Getting the Document and Selection)
   (log/info "======== get-user-data: atom =" @data-editor-atm)
-  (.toString (j/get (j/get @data-editor-atm .state) .doc)))
+  (.toString (j/get-in @data-editor-atm [.state .doc])))
+
+;;; Dream on! (j/get @code-editor-atm .editor) ==> nil (but .viewport works FWIW.)
+(defn set-size []
+  ;(j/get (j/get (j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style) .height)
+  (j/get-in @code-editor-atm [.viewport .display .wrapper .style .height]))
+  ;;(j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style)
+  ;;(j/get (j/get @code-editor-atm .viewport) .display) .wrapper)
+  ;;(j/get @code-editor-atm .viewport) .display)
+  ;;(j/get (j/get @code-editor-atm .viewport) .display))
+
+
 
 (defn run-code
   "ev/processRM the source, returning a string that is either the result of processing
@@ -153,7 +197,7 @@
       on-result) ;; on-result is the set-result function from hooks/use-state.
   true)          ;; This is run for its side-effect.
 
-(defn add-on-result-action
+(defn add-result-action
   "Return the keymap updated with the partial for :on-result, I think!" ;<===
   [{:keys [on-result]}]
   (log/info "sci-eval Extension")
@@ -162,13 +206,34 @@
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
+(defnc EdView [{:keys [editor-state width height]}]
+  ($ MuiBox {:ref (fn [parent]
+                    (log/info "======Creating code editor. parent =" parent)
+                    (when parent
+                      (reset! code-editor-atm
+                              (new EditorView ; https://codemirror.net/docs/ref/
+                                   (j/obj :state editor-state :parent parent)))))}))
+
+;;; *Function components cannot be given refs. forwardRef?*
+(defnc ResizableEditor
+  [{:keys [init-width init-height editor-state]}]
+    (let [[width  _set-width]  (hooks/use-state init-width)
+          [height _set-height] (hooks/use-state init-height)
+          ed-ref (hooks/use-ref nil)]
+      (hooks/use-effect [width height]
+        (when-let [ed (j/get ed-ref :current)]
+          (log/info "=====Calling setSize" width height)
+          (j/call ed :setSize width height)))
+    (log/info "=====Creating ResizableEditor, editor-state =" editor-state) ; ed-ref.current will be nil, last I saw.
+    ($ EdView {:editor-state editor-state :width width :height height})))
+
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
 
 (defnc Top []
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
         code-editor-state (state/make-state
-                           (-> #js [extensions] (.concat #js [(add-on-result-action {:on-result set-result})]))
+                           (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
                            (if @initialized? "" init-code))
         data-editor-state (state/make-state
                            #js [extensions]
@@ -180,16 +245,13 @@
           "RADmapper")
        ($ ShareLeftRight
           {:left ($ MuiBox {:ref (fn [el] ; <======================= Use this (somehow hooks/use-ref :current?) closure?
-                                   (log/info "=====Calling the data editor. el =" el)
+                                   (log/info "-----Creating data editor. el =" el)
                                    (when el
                                      (reset! data-editor-atm
                                              (new EditorView ; https://codemirror.net/docs/ref/
                                                   (j/obj :state data-editor-state :parent el)))))})
            :right ($ ShareUpDown
-                     {:up ($ MuiBox {:ref (fn [el]
-                                            (when el
-                                              (new EditorView ; https://codemirror.net/docs/ref/
-                                                   (j/obj :state code-editor-state :parent el))))})
+                     {:up ($ ResizableEditor {:init-width 200 :init-height 200 :editor-state code-editor-state})
                       ;; See https://mui.com/material-ui/react-text-field/  useFormControl
                       ;; Also exerciser/src/rm_exerciser/app/core.cljs
                       ;; Especially,    :InputProps  {:end-adornment (r/as-element [input-adornment {:position "end"} "Baz"])}}]

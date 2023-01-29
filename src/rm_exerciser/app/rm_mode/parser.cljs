@@ -12,7 +12,7 @@
    [rm-exerciser.app.rm-mode.extensions.eval-region :as eval-region]
    [rm-exerciser.app.rm-mode.keymap :as keymap]
    [rm-exerciser.app.rm-mode.node :as n]
-   [rm-exerciser.app.rm-mode.test-utils :as test-utils]))
+   [rm-exerciser.app.rm-mode.state :as state]))
 
 (def fold-node-props
   (let [coll-span (fn [^js tree] #js{:from (inc (n/start tree))
@@ -22,6 +22,10 @@
       :Map coll-span
       :List coll-span})))
 
+;;; clojure.grammar defines the keys used here.
+;;; Therefore, perhaps my parse structure is not so far off that I couldn't use this.
+;;; First step is to study the 'non-abtract syntax tree' (See https://lezer.codemirror.net/) produced for clojure.
+;;; Problem: I don't see hooks on how to do that.
 (def style-tags
   (clj->js {:NS (.-keyword tags)
             :DefLike (.-keyword tags)
@@ -49,7 +53,8 @@
 
 (def parser lezer-clj/parser)
 
-(comment
+;;; HEY, DON'T DELETE THIS QUITE YET!
+#_(comment
   ;; to build a parser \""live" from a .grammar file,
   ;; rather than using a precompiled parser:
   (def parser
@@ -70,10 +75,10 @@
 (def ^js/Array paredit-keymap keymap/paredit)
 
 (def default-extensions
-  #js[(syntax lezer-clj/parser) ; <=============== ToDo
-      (close-brackets/extension)
-      (match-brackets/extension)
-      (sel-history/extension)
+  #js[(syntax lezer-clj/parser)    ;; <=== As it stands, this gives you clojure highlighting.
+      (close-brackets/extension)   ;;      See https://lezer.codemirror.net/
+      (match-brackets/extension)   ;;      I'd have to decide whether to use it. (Is my grammar even regular?)
+      (sel-history/extension)      ;;      Or maybe see if I can do highlighing without anything like this.
       (format/ext-format-changed-lines)
       (eval-region/extension {:modifier "Alt"})])
 
@@ -82,32 +87,32 @@
   See https://codemirror.net/docs/ref/#language.LanguageSupport for motivations"
   (LanguageSupport. (syntax) (.. default-extensions (slice 1))))
 
-(comment
+#_(comment
 
-  (let [state (test-utils/make-state #js[(syntax lezer-clj/parser)] "[] a")]
+  (let [state (state/make-state #js[(syntax lezer-clj/parser)] "[] a")]
     (-> (n/tree state)
         (.resolve 2 1) ;; Symbol "a"
         .-prevSibling
         js/console.log))
 
-  (let [state (test-utils/make-state #js[(syntax lezer-clj/parser)] "\"\" :a")]
+  (let [state (state/make-state #js[(syntax lezer-clj/parser)] "\"\" :a")]
     (-> state
         n/tree
         (n/cursor 0 1)
         ))
-  (let [state (test-utils/make-state #js[(syntax lezer-clj/parser)] "a\n\nb")]
+  (let [state (state/make-state #js[(syntax lezer-clj/parser)] "a\n\nb")]
     (-> state
         (n/tree 1 1)
         (->> (n/string state))
         str
         ))
-  (let [state (test-utils/make-state #js[(syntax lezer-clj/parser)] "([]| s)")]
+  (let [state (state/make-state #js[(syntax lezer-clj/parser)] "([]| s)")]
     (-> state
         n/tree
         (n/terminal-cursor 3 1)
         ))
 
-  (let [state (test-utils/make-state #js[(syntax lezer-clj/parser)] "(|")]
+  (let [state (state/make-state #js[(syntax lezer-clj/parser)] "(|")]
     (-> state
         (close-brackets/handle-close ")")
         (->> (n/string state)))))
