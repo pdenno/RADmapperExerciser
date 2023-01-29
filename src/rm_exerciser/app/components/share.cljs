@@ -15,11 +15,8 @@
    a black bar that could be viewed as the frame dividing the two."
   [{:keys [up down]}]
   {:helix/features {:check-invalid-hooks-usage true}}
-  (let [#_#_up-bounds (.getBoundingClientRect up)
-        [up-height set-up-height] (hooks/use-state {:size 200 #_(- (j/get up-bounds :bottom) (j/get up-bounds :top))})
+  (let [[up-height set-up-height] (hooks/use-state {:size 200 #_(- (j/get up-bounds :bottom) (j/get up-bounds :top))})
         [dn-height set-dn-height] (hooks/use-state {:size 200})
-        #_#_[up-maxrows set-up-maxrows] (hooks/use-state {:maxrows 5})
-        #_#_[dn-maxrows set-dn-maxrows] (hooks/use-state {:maxrows 5})
         u-ref (hooks/use-ref nil)
         d-ref (hooks/use-ref nil)
         mouse-down? (atom false)] ; ToDo: Why is this necessary? (It is necessary.)
@@ -47,13 +44,6 @@
               (reset! mouse-down? false)
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
-      #_(hooks/use-layout-effect ; You close this; it doesn't nest the stack!
-       (js/console.log "running layout effect")
-       #_(set-up-maxrows {:maxrows 3})
-       #_(set-dn-maxrows {:maxrows 7})
-       #_((j/get (j/get up :type) :render) up)
-       #_(.render up)
-       #_(when-let [ubox (j/get u-ref :current)] (.render ubox)))
       ($ Stack
          {:direction "column"
           :display   "flex"
@@ -68,15 +58,9 @@
                                :onMouseUp   stop-drag
                                :color "black"})}
          ($ MuiBox {:ref u-ref :height (:size up-height)}
-            up   #_{:maxRows (:up-maxrows up-maxrows)})
-         #_($ MuiBox {:variant "active-horiz-box"
-                    :height 50
-                    :onMouseDown start-drag
-                    :onMouseMove do-drag
-                    :onMouseUp   stop-drag
-                    :backgroundColor "black"})
+            up)
          ($ MuiBox {:ref d-ref :height (:size dn-height)}
-            down #_{:maxRows (:down-maxrows dn-maxrows)})))))
+            down)))))
 
 (defnc ShareLeftRight
   "Create a Stack with two children (props :left and :right) where the

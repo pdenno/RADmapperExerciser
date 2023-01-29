@@ -12,15 +12,17 @@
    ;["@mui/material/colors" :as colors]
    ["@mui/material/Box$default" :as MuiBox]
    ["@mui/material/CssBaseline" :as CssBaseline]
+   ["@mui/material/Stack$default" :as Stack]                                 ; Temporary
+   ["@mui/material/Divider$default" :as Divider]                             ; Temporary
    ;["@mui/material/InputAdornment$default" :as InputAdornment]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
    ["@mui/material/TextField$default" :as TextField]
    [rm-exerciser.app.components.share :refer [ShareUpDown ShareLeftRight]]
-   [helix.core :refer [defnc $ <>]]
+   [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
-   ;[helix.dom :as d]
+   [helix.dom :as d]
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
@@ -206,26 +208,22 @@
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
-(defnc EdView [{:keys [editor-state width height]}]
-  ($ MuiBox {:ref (fn [parent]
-                    (log/info "======Creating code editor. parent =" parent)
-                    (when parent
-                      (reset! code-editor-atm
-                              (new EditorView ; https://codemirror.net/docs/ref/
-                                   (j/obj :state editor-state :parent parent)))))}))
-
-;;; *Function components cannot be given refs. forwardRef?*
 (defnc ResizableEditor
   [{:keys [init-width init-height editor-state]}]
     (let [[width  _set-width]  (hooks/use-state init-width)
           [height _set-height] (hooks/use-state init-height)
           ed-ref (hooks/use-ref nil)]
-      (hooks/use-effect [width height]
-        (when-let [ed (j/get ed-ref :current)]
-          (log/info "=====Calling setSize" width height)
-          (j/call ed :setSize width height)))
+      (hooks/use-effect []
+         (when-let [parent (j/get ed-ref :current)]
+           (log/info "===== About to do new EditorView")
+           (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
+             (j/assoc-in! ed-ref [:current :editor] editor))))
+      #_(hooks/use-effect [width height]
+         (when-let [editor (j/get-in ed-ref [:current :editor])]
+           (log/info "=====Calling setSize" width height "editor =" editor)
+           (.setSize editor width height)))
     (log/info "=====Creating ResizableEditor, editor-state =" editor-state) ; ed-ref.current will be nil, last I saw.
-    ($ EdView {:editor-state editor-state :width width :height height})))
+    ($ MuiBox {:ref ed-ref})))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
@@ -245,7 +243,7 @@
           "RADmapper")
        ($ ShareLeftRight
           {:left ($ MuiBox {:ref (fn [el] ; <======================= Use this (somehow hooks/use-ref :current?) closure?
-                                   (log/info "-----Creating data editor. el =" el)
+                                   ;(log/info "-----Creating data editor. el =" el)
                                    (when el
                                      (reset! data-editor-atm
                                              (new EditorView ; https://codemirror.net/docs/ref/
