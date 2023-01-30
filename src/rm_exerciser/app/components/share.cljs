@@ -5,7 +5,8 @@
    ["@mui/material/Box$default" :as MuiBox]
    [applied-science.js-interop :as j]
    [helix.core :refer [defnc $]]
-   [helix.hooks :as hooks]))
+   [helix.hooks :as hooks]
+   [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def diag (atom nil))
 
@@ -13,13 +14,23 @@
   "Create a Stack with two children (props :up and :down) where the
    area shared between the two can be distributed by dragging the Stack divider,
    a black bar that could be viewed as the frame dividing the two."
-  [{:keys [up down]}]
+  [{:keys [up dn on-resize-up on-resize-dn init-width] :or {init-width 500}}]
   {:helix/features {:check-invalid-hooks-usage true}}
+  ;; ToDo: Get the parent's height here or pass it in.
   (let [[up-height set-up-height] (hooks/use-state {:size 200 #_(- (j/get up-bounds :bottom) (j/get up-bounds :top))})
         [dn-height set-dn-height] (hooks/use-state {:size 200})
+        [width set-width]         (hooks/use-state init-width)
         u-ref (hooks/use-ref nil)
         d-ref (hooks/use-ref nil)
+        ref (hooks/use-ref nil) ; ToDO: Not sure about doing this!
         mouse-down? (atom false)] ; ToDo: Why is this necessary? (It is necessary.)
+    (hooks/use-effect [width] ; <================================================================= This doesn't work
+       (when-let [parent (j/get ref :current)] ; ToDo: Can't use something simpler???
+         (let [lbound (j/get (.getBoundingClientRect parent) :left)
+               rbound (j/get (.getBoundingClientRect parent) :right)
+               width (- rbound lbound)]
+           (log/info "===== Setting width to " width)
+           (set-width width))))
     (letfn [(do-drag [e]
               (when @mouse-down?
                 (when-let [ubox (j/get u-ref :current)]
@@ -35,7 +46,9 @@
                               dn-size (int (* (- 1 up-fraction) height))]
                           (js/console.log "up-size = " up-size " dn-size = " dn-size)
                           (set-up-height {:size up-size})
-                          (set-dn-height {:size dn-size}))))))))
+                          (set-dn-height {:size dn-size})
+                          (on-resize-up up width up-size)
+                          (on-resize-dn dn width dn-size))))))))
             (start-drag [_e]
               (reset! mouse-down? true)
               (js/document.addEventListener "mouseup"   stop-drag)
@@ -45,12 +58,8 @@
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
       ($ Stack
-         {:direction "column"
-          :display   "flex"
-          :height    "100%"
-          :alignItems "stretch" ; does nothing
-          :width     "100%"
-          :spacing   0
+         {:direction "column" :display "flex" :height "100%" :alignItems "stretch" ; does nothing
+          :width     "100%"  :spacing   0
           :divider ($ Divider {:variant "active-horiz"
                                :height 5
                                :onMouseDown start-drag
@@ -60,7 +69,7 @@
          ($ MuiBox {:ref u-ref :height (:size up-height)}
             up)
          ($ MuiBox {:ref d-ref :height (:size dn-height)}
-            down)))))
+            dn)))))
 
 (defnc ShareLeftRight
   "Create a Stack with two children (props :left and :right) where the
@@ -95,12 +104,7 @@
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
       ($ Stack
-         {:direction "row"
-          :display   "flex"
-          #_#_:height    height ; If you use this, the divider will be too short
-          :alignItems "stretch" ; does nothing
-          #_#_:width     "100%"
-          :spacing   0
+         {:direction "row" :display   "flex" :spacing 0 :alignItems "stretch" ; does nothing
           :divider ($ Divider {:variant "active-vert"
                                :width 5
                                :onMouseDown start-drag

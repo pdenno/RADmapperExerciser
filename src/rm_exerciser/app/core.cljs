@@ -5,16 +5,14 @@
    [rm-exerciser.app.rm-mode.state :as state]
    [rad-mapper.evaluate :as ev]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
-   ["@codemirror/commands" :refer [history historyKeymap]]
+   ["@codemirror/commands" :refer [history #_historyKeymap emacsStyleKeymap]]
    ["@codemirror/state" :refer [EditorState]]
    ["@codemirror/view" :as view :refer [EditorView]]
    [applied-science.js-interop :as j]
    ;["@mui/material/colors" :as colors]
    ["@mui/material/Box$default" :as MuiBox]
    ["@mui/material/CssBaseline" :as CssBaseline]
-   ["@mui/material/Stack$default" :as Stack]                                 ; Temporary
-   ["@mui/material/Divider$default" :as Divider]                             ; Temporary
-   ;["@mui/material/InputAdornment$default" :as InputAdornment]
+   ;;["@mui/material/InputAdornment$default" :as InputAdornment]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
@@ -112,7 +110,7 @@
 
    $DBb := [{'id' : 'bob@example.com', 'bAttr' : 'Bob-B-data'},
             {'id' : 'alice@alice.org', 'bAttr' : 'Alice-B-data'}];")
-#_(def init-data "***small data ***")
+#_(def init-data "***small data***")
 
 (def init-code
    "( $qFn :=  query(){[$DBa ?e1 :email ?id]
@@ -129,6 +127,9 @@
 
    $reduce($bSet, $eFn) )")
 
+#_(def init-code "***small code****")
+
+
 ;;; ~/Documents/git/clojure/clojure-mode/demo/src/nextjournal/clojure_mode/demo.cljs
 (defonce extensions #js[editor-theme
                         (history)
@@ -138,7 +139,7 @@
                         (.. EditorState -allowMultipleSelections (of true)) ; https://codemirror.net/docs/ref/
                         parser/default-extensions
                         (.of view/keymap parser/complete-keymap)
-                        (.of view/keymap historyKeymap)])
+                        (.of view/keymap emacsStyleKeymap #_historyKeymap)])
 
 (def user-data-atm "Set as a hook effect for use in RM evaluation." (atom nil))
 (def data-editor-atm "Set to the data editor object" (atom nil)) ; ToDo: Find a more react idiomatic way to do this.
@@ -165,14 +166,12 @@
 
 ;;; Dream on! (j/get @code-editor-atm .editor) ==> nil (but .viewport works FWIW.)
 (defn set-size []
-  ;(j/get (j/get (j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style) .height)
+  ;;(j/get (j/get (j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style) .height)
   (j/get-in @code-editor-atm [.viewport .display .wrapper .style .height]))
   ;;(j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style)
   ;;(j/get (j/get @code-editor-atm .viewport) .display) .wrapper)
   ;;(j/get @code-editor-atm .viewport) .display)
   ;;(j/get (j/get @code-editor-atm .viewport) .display))
-
-
 
 (defn run-code
   "ev/processRM the source, returning a string that is either the result of processing
@@ -208,22 +207,45 @@
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
-(defnc ResizableEditor
-  [{:keys [init-width init-height editor-state]}]
-    (let [[width  _set-width]  (hooks/use-state init-width)
-          [height _set-height] (hooks/use-state init-height)
-          ed-ref (hooks/use-ref nil)]
+(defnc ResultTextField
+  [{:keys [result]}]
+  ;; See https://mui.com/material-ui/react-text-field/  useFormControl
+  ;; Also exerciser/src/rm_exerciser/app/core.cljs
+  ;; Especially,    :InputProps  {:end-adornment (r/as-element [input-adornment {:position "end"} "Baz"])}}]
+  ($ TextField {:sx {:color "text.secondary"}
+                :multiline true
+                :minRows 4
+                ;;:inputProps {:endAdornment ($ InputAdornment {:position "end"} "Baz")}
+                :fullWidth true
+                :placeholder "Ctrl-Enter above to execute."
+                :value result}))
+
+;;; Maybe the thing to do next is to move useState things into the parent ShareUpDown.
+;;; But it has use-state things, right? So can I get the child to use them somehow?
+(defnc Editor
+  [{:keys [editor-state atm]}]
+    (let [ed-ref (hooks/use-ref nil)]
       (hooks/use-effect []
          (when-let [parent (j/get ed-ref :current)]
-           (log/info "===== About to do new EditorView")
            (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
-             (j/assoc-in! ed-ref [:current :editor] editor))))
-      #_(hooks/use-effect [width height]
-         (when-let [editor (j/get-in ed-ref [:current :editor])]
-           (log/info "=====Calling setSize" width height "editor =" editor)
-           (.setSize editor width height)))
-    (log/info "=====Creating ResizableEditor, editor-state =" editor-state) ; ed-ref.current will be nil, last I saw.
+             (when atm (reset! atm editor))
+             (swap! diag #(assoc % :editor-view editor))
+             (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
+    (log/info "=====Created ResizableEditor, editor-state =" editor-state) ; ed-ref.current will be nil, last I saw.
     ($ MuiBox {:ref ed-ref})))
+
+;;; <======================= Maybe the solution is to do a j/assoc-in! like above on Share?
+(defn resize-editor
+  [editor width height]
+  (log/info "=====Calling setSize" width height "editor =" editor)
+  (swap! diag #(assoc % :editor editor))
+  (.render editor)
+  #_(.setSize editor width height))
+
+;;; This might not even be necessary. When the MuiBox is updated that's good enough.
+(defn resize-other
+  [_ref width height]
+  (log/info "=====resize-other NYI (w,h)" width height ))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
@@ -242,26 +264,14 @@
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
           "RADmapper")
        ($ ShareLeftRight
-          {:left ($ MuiBox {:ref (fn [el] ; <======================= Use this (somehow hooks/use-ref :current?) closure?
-                                   ;(log/info "-----Creating data editor. el =" el)
-                                   (when el
-                                     (reset! data-editor-atm
-                                             (new EditorView ; https://codemirror.net/docs/ref/
-                                                  (j/obj :state data-editor-state :parent el)))))})
+          {:left  ($ Editor {:editor-state data-editor-state :atm data-editor-atm })
+           :on-resize-left resize-other
            :right ($ ShareUpDown
-                     {:up ($ ResizableEditor {:init-width 200 :init-height 200 :editor-state code-editor-state})
-                      ;; See https://mui.com/material-ui/react-text-field/  useFormControl
-                      ;; Also exerciser/src/rm_exerciser/app/core.cljs
-                      ;; Especially,    :InputProps  {:end-adornment (r/as-element [input-adornment {:position "end"} "Baz"])}}]
-                      :down ($ TextField {:sx {:color "text.secondary"}
-                                          :multiline true
-                                          :minRows 4
-                                          ;:inputProps {:endAdornment ($ InputAdornment {:position "end"} "Baz")}
-                                          :fullWidth true
-                                          :placeholder "Ctrl-Enter above to execute."
-                                          :value (if-let [success (:success result)]
-                                                   success
-                                                   (:failure result))})})}))))
+                     {:up ($ Editor {:editor-state code-editor-state :atm code-editor-atm})
+                      :on-resize-up resize-editor
+                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})
+                      :on-resize-dn resize-other})
+           :on-resize-right resize-other}))))
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
