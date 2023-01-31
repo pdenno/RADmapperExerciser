@@ -47,8 +47,8 @@
                           (js/console.log "up-size = " up-size " dn-size = " dn-size)
                           (set-up-height {:size up-size})
                           (set-dn-height {:size dn-size})
-                          (on-resize-up up width up-size)
-                          (on-resize-dn dn width dn-size))))))))
+                          (when on-resize-up (on-resize-up up width up-size))
+                          (when on-resize-dn (on-resize-dn dn width dn-size)))))))))
             (start-drag [_e]
               (reset! mouse-down? true)
               (js/document.addEventListener "mouseup"   stop-drag)

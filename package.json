@@ -20,6 +20,7 @@
     "@lezer/lr": "1.2.3",
     "@mui/icons-material": "^5.11.0",
     "@mui/material": "^5.11.3",
+    "cm6-theme-material-dark": "^0.2.0",
     "codemirror": "^6.0.1",
     "lezer-clojure": "1.0.0-rc.2",
     "nata-borrowed": "^1.0.5",
@@ -30,9 +31,9 @@
     "w3c-keyname": "2.2.6"
   },
   "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1",
-      "exer-client": "shadow-cljs -d nrepl/nrepl:1.0.0 -d cider/piggieback:0.5.3 -d cider/cider-nrepl:0.28.5 watch frontend",
-      "exer-server": "clj -A:dev -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"1.0.0\"} cider/cider-nrepl {:mvn/version \"0.28.5\"}} :aliases {:cider/nrepl {:main-opts [\"-m\" \"nrepl.cmdline\" \"--middleware\" \"[cider.nrepl/cider-middleware]\"]}}}' -M:cider/nrepl"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "exer-client": "shadow-cljs -d nrepl/nrepl:1.0.0 -d cider/piggieback:0.5.3 -d cider/cider-nrepl:0.28.5 watch frontend",
+    "exer-server": "clj -A:dev -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"1.0.0\"} cider/cider-nrepl {:mvn/version \"0.28.5\"}} :aliases {:cider/nrepl {:main-opts [\"-m\" \"nrepl.cmdline\" \"--middleware\" \"[cider.nrepl/cider-middleware]\"]}}}' -M:cider/nrepl"
   },
   "author": "Peter Denno",
   "license": "ISC"

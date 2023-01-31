@@ -1,13 +1,16 @@
 (ns rm-exerciser.app.core
   (:require
+   [goog.object :as gobj]
    [clojure.string :as str]
    [rm-exerciser.app.rm-mode.parser :as parser]
    [rm-exerciser.app.rm-mode.state :as state]
    [rad-mapper.evaluate :as ev]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
    ["@codemirror/commands" :refer [history #_historyKeymap emacsStyleKeymap]]
-   ["@codemirror/state" :refer [EditorState]]
-   ["@codemirror/view" :as view :refer [EditorView]]
+   ["@codemirror/state" :refer [EditorState Transaction Compartment]]
+   ["@codemirror/view" :as view :refer [EditorView ViewPlugin ViewUpdate MeasureRequest #_lineNumbers]]
+   ;["@codemirror/extension" :as ext :refer [ViewUpdate MeasureRequest]]
+   ;["cm6-theme-material-dark" :refer [materialDark]]
    [applied-science.js-interop :as j]
    ;["@mui/material/colors" :as colors]
    ["@mui/material/Box$default" :as MuiBox]
@@ -22,6 +25,7 @@
    [helix.hooks :as hooks]
    [helix.dom :as d]
    ["react-dom/client" :as react-dom]
+   [shadow.cljs.modern :refer (defclass)]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def diag (atom {}))
@@ -68,15 +72,14 @@
 ;;; https://github.com/FarhadG/code-mirror-themes/tree/master/themes
 (def editor-theme
   (.theme EditorView
-          (j/lit {".cm-content" {:white-space "pre-wrap"
+          (j/lit {".cm-editor" {:resize true         ; Supposedly these allow it to be resized (when used with requestMeasure).
+                                :overflow "hidden"}  ; https://discuss.codemirror.net/t/resizing-codemirror-6/3265
+                  #_#_".cm-content" {:white-space "pre-wrap"
                                  :padding "5px 0"
                                  ;;:height "fit-content !important" ; guessing does nothing
                                  :height "auto"
-                                 :maxLines 3 ; guessing does nothing.
                                  :flex "1 1 0"}
                   ;;".CodeMirror-linenumber" { :color "#9933CC"} ; FarhadG does nothing
-                  ;;".CodeMirror" {:border "1px solid #eee"             ; https://codemirror.net/5/demo/resize.html
-                  ;;               :height "auto"}
                   ;; https://discuss.codemirror.net/t/codemirror-6-setting-a-minimum-height-but-allow-the-editor-to-grow/2520/7
                   ;;".cm-gutters" {:min-height "150px"
                   ;;               :margin "1px" }
@@ -96,9 +99,11 @@
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                          :color "inherit"}
                   ".cm-gutters" {:background "lightgray" ;"transparent"
-                                 ;:box-shadow "1px 0 2px 0 rgba(0, 0, 0, 0.5)" ; works
-                                 :lineNumbers true ; guessing does nothing
+                                                         ;:box-shadow "1px 0 2px 0 rgba(0, 0, 0, 0.5)" ; works
+                                 :lineNumbers true       ; guessing does nothing
                                  :border "none"}
+                  ".cm-gutter, .cm-content" {:maxHeight "110px" ; <======= works if .cm-editor is okay.
+                                             :overflow "auto"}  ; scroll bars appear as needed.
                   ".cm-gutterElement" {:margin-left "5px"}
                   ;; only show cursor when focused
                   ".cm-cursor" {:visibility "hidden"}
@@ -129,21 +134,25 @@
 
 #_(def init-code "***small code****")
 
-
+(def editorHeight "not used yet!" (new Compartment))
+;;; ToDo: Was defonce.
 ;;; ~/Documents/git/clojure/clojure-mode/demo/src/nextjournal/clojure_mode/demo.cljs
-(defonce extensions #js[editor-theme
-                        (history)
-                        (syntaxHighlighting defaultHighlightStyle)
-                        (view/drawSelection)
-                        (foldGutter)
-                        (.. EditorState -allowMultipleSelections (of true)) ; https://codemirror.net/docs/ref/
-                        parser/default-extensions
-                        (.of view/keymap parser/complete-keymap)
-                        (.of view/keymap emacsStyleKeymap #_historyKeymap)])
+(def extensions #js[editor-theme
+                    #_materialDark
+                    ;;(lineNumbers) works, but ugly.
+                    ;;(.. EditorState editorHeight (of 300)) ; WIP I'm guessing.
+                    (history) ; This means you can undo things!
+                    (syntaxHighlighting defaultHighlightStyle)
+                    (view/drawSelection)
+                    (foldGutter)
+                    (.. EditorState -allowMultipleSelections (of true))
+                    parser/default-extensions ; related to fold gutter, at least
+                    (.of view/keymap parser/complete-keymap)
+                    (.of view/keymap emacsStyleKeymap #_historyKeymap)])
 
-(def user-data-atm "Set as a hook effect for use in RM evaluation." (atom nil))
-(def data-editor-atm "Set to the data editor object" (atom nil)) ; ToDo: Find a more react idiomatic way to do this.
-(def code-editor-atm (atom nil))
+;;; ToDo: Find a more react idiomatic way to do this.
+(def data-editor-atm "Set to an EditorView object" (atom nil))
+(def code-editor-atm "Set to an EditorView object" (atom nil))
 
 ;;; Problem: This is using the atom data-editor-atm, which isn't reliable for some reason.
 ;;; The following is from https://codemirror.net/docs/migration/
@@ -162,16 +171,7 @@
   ;; https://stackoverflow.com/questions/10285301/how-to-get-the-value-of-codemirror-textarea
   ;; See also the very helpful https://codemirror.net/docs/migration/ (section "Getting the Document and Selection)
   (log/info "======== get-user-data: atom =" @data-editor-atm)
-  (.toString (j/get-in @data-editor-atm [.state .doc])))
-
-;;; Dream on! (j/get @code-editor-atm .editor) ==> nil (but .viewport works FWIW.)
-(defn set-size []
-  ;;(j/get (j/get (j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style) .height)
-  (j/get-in @code-editor-atm [.viewport .display .wrapper .style .height]))
-  ;;(j/get (j/get (j/get @code-editor-atm .viewport) .display) .wrapper) .style)
-  ;;(j/get (j/get @code-editor-atm .viewport) .display) .wrapper)
-  ;;(j/get @code-editor-atm .viewport) .display)
-  ;;(j/get (j/get @code-editor-atm .viewport) .display))
+  (.toString (j/get-in @data-editor-atm [:state :doc])))
 
 (defn run-code
   "ev/processRM the source, returning a string that is either the result of processing
@@ -220,35 +220,66 @@
                 :placeholder "Ctrl-Enter above to execute."
                 :value result}))
 
+(def new-height "For communication between resize-editor and measure-write" (atom nil))
+
+(defn measure-read ; ToDo: rename these (geom-change etc.)
+  "Returns the ViewState object so that measure-write can operate on it."
+  [editor-view]
+  (log/info "=====Reading height " (j/get-in editor-view [:viewState :editorHeight]))
+  (j/get editor-view :viewState))
+
+(defn measure-write [view-state editor-view]
+  (when-let [height @new-height]
+    (j/assoc! view-state :contentDOMHeight height)
+    (j/assoc! view-state :editorHeight height)
+    (reset! code-editor-atm editor-view) ; <===================== pointless?
+    (log/info "=====Writing height =" height)))
+
+(defn modify-geom [#^EditorView editor-view]
+  (log/info "============ modify-geom ====")
+  (.requestMeasure
+   editor-view
+   ^MeasureRequest (j/obj :read  measure-read
+                          :write measure-write
+                          #_#_:key "editorHeight")))
+
+(defn resize-editor
+  [editor-view _width height]
+  (reset! new-height height)
+  #_(let [#^ViewUpdate update (new ViewUpdate (j/obj :view editor-view
+                                                   :startState (j/get editor-view :state)
+                                                   :geometryChanged true))])
+    (log/info "resize-editor: update fn = " (j/get editor-view :update))
+    #_((j/get editor-view :update) update))
+
+;;; https://stackoverflow.com/questions/61040644/clojurscript-extend-a-javascript-class
+(defclass ResizableEditorView
+  (extends EditorView) ; Example doesn't have extends
+  (constructor [this init-data] (super init-data))
+  ;; adds regular method, protocols similar to deftype/defrecord also supported
+  Object
+  (update [this #^ViewUpdate update]
+          (if (j/get update :geometryChanged)
+            (modify-geom (j/get update :view))
+            (log/info "geometry did not changed."))))
+
 ;;; Maybe the thing to do next is to move useState things into the parent ShareUpDown.
 ;;; But it has use-state things, right? So can I get the child to use them somehow?
 (defnc Editor
   [{:keys [editor-state atm]}]
-    (let [ed-ref (hooks/use-ref nil)]
-      (hooks/use-effect []
-         (when-let [parent (j/get ed-ref :current)]
-           (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
-             (when atm (reset! atm editor))
-             (swap! diag #(assoc % :editor-view editor))
-             (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
-    (log/info "=====Created ResizableEditor, editor-state =" editor-state) ; ed-ref.current will be nil, last I saw.
+  (let [ed-ref (hooks/use-ref nil)]
+    (hooks/use-effect []
+       (when-let [parent (j/get ed-ref :current)]
+         (let [editor (new ResizableEditorView (j/obj :state editor-state :parent parent))]
+           (log/info "=====Created ResizableEditor: " editor)
+           (when atm (reset! atm editor))
+           (swap! diag #(assoc % :editor-view editor :parent parent))
+           (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
     ($ MuiBox {:ref ed-ref})))
-
-;;; <======================= Maybe the solution is to do a j/assoc-in! like above on Share?
-(defn resize-editor
-  [editor width height]
-  (log/info "=====Calling setSize" width height "editor =" editor)
-  (swap! diag #(assoc % :editor editor))
-  (.render editor)
-  #_(.setSize editor width height))
-
-;;; This might not even be necessary. When the MuiBox is updated that's good enough.
-(defn resize-other
-  [_ref width height]
-  (log/info "=====resize-other NYI (w,h)" width height ))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
+(def code-editor-state-atm (atom nil))
 
 (defnc Top []
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
@@ -259,19 +290,19 @@
                            #js [extensions]
                             (if @initialized? (get-user-data) init-data))] ; Problem here is that it adds it again! (get extra copies).
     (reset! initialized? true)
+    (reset! code-editor-state-atm code-editor-state)
     ($ Stack {:direction "column" :spacing 0}
        ($ Typography
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
           "RADmapper")
        ($ ShareLeftRight
           {:left  ($ Editor {:editor-state data-editor-state :atm data-editor-atm })
-           :on-resize-left resize-other
+           :on-resize-left nil ; ToDo
            :right ($ ShareUpDown
                      {:up ($ Editor {:editor-state code-editor-state :atm code-editor-atm})
                       :on-resize-up resize-editor
-                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})
-                      :on-resize-dn resize-other})
-           :on-resize-right resize-other}))))
+                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
+           :or-resize-right nil})))) ; ToDo
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
