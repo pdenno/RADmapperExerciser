@@ -64,14 +64,17 @@
 ;;; https://codemirror.net/docs/ref/#state.EditorStateConfig.extensions
 ;;; The editor state class is a persistent (immutable) data structure.
 ;;; To update a state, you create a transaction, which produces a new state instance, without modifying the original object.
-;;;As such, never mutate properties of a state directly. That'll just break things.
+;;; As such, never mutate properties of a state directly. That'll just break things.
 
 ;;; https://codemirror.net/examples/styling/
 ;;; https://github.com/FarhadG/code-mirror-themes/tree/master/themes
 (def editor-theme
   (.theme EditorView
           (j/lit {".cm-editor" {:resize   "both"       ; Supposedly these allow it to be resized (when used with requestMeasure).
+                                :height   "auto"       ; https://discuss.codemirror.net/t/editor-variable-height/3523
                                 :overflow "hidden"}    ; https://discuss.codemirror.net/t/resizing-codemirror-6/3265
+
+                  #_#_".cm-editor[style*=\"height\"]" {:max-height "unset"} ; https://discuss.codemirror.net/t/editor-variable-height/3523
                   #_#_".cm-content" {:white-space "pre-wrap"
                                  :padding "5px 0"
                                  ;;:height "fit-content !important" ; guessing does nothing
@@ -153,15 +156,20 @@
                           :key "editorHeight")))
 
 (defn resize-editor
-  "Run the EditorView's update fn with a update where :geometryChanged = true (I THINK!)"
+  "Set the height atom"
   [_something _width height]
   (reset! new-height height)
-  #_(let [#^ViewUpdate update (new ViewUpdate (j/obj #_#_:view editor-view
-                                                   #_#_:startState (j/get editor-view :state)
-                                                   :geometryChanged true))])
-  (swap! diag #(assoc % :view-in-re :forgetIt :update update))
-  (log/info "resize-editor: editor-view = " :notYet)
-  #_((j/get editor-view :update) update))
+  (let [#^EditorView view @code-editor-atm]
+    (.requestMeasure
+     view
+     ^MeasureRequest (j/obj :read  measure-read
+                            :write measure-write
+                            :key "editorHeight")))
+  ;#(j/assoc-in! @code-editor-atm [:viewState :contentDOMHeight] height)
+  ;#(j/assoc-in! @code-editor-atm [:viewState :editorHeight] height)
+  (log/info "resize-editor: new-height = " @new-height))
+
+(def diag-update (atom nil))
 
 ;;; https://stackoverflow.com/questions/61040644/clojurscript-extend-a-javascript-class
 (defclass SoftWrapPlugin
@@ -172,11 +180,14 @@
   Object
   (update [this #^ViewUpdate update]
           (log/info "Call to SWP.update() update =" update)
-          (if (j/get update :geometryChanged)
+          (reset! diag-update update)
+          (reset! code-editor-atm (j/get update :view))
+          (if (j/get update :geometryChanged) ; It WILL work! (I checked.)
             (modify-geom (j/get update :view))
             (log/info "geometry did not changed."))))
 
 (def #^ViewPlugin soft-wrap
+  "A JS array (for extensions) that adds an .update method to EditorView for modifying geometry."
   #js [(.define ViewPlugin (fn [#^EditorView view]
                              (log/info "Plugin creating new SWP")
                              (new SoftWrapPlugin view)))])
@@ -268,24 +279,11 @@
   (let [ed-ref (hooks/use-ref nil)]
     (hooks/use-effect []
        (when-let [parent (j/get ed-ref :current)]
-         (let [editor  (new EditorView (j/obj :state editor-state :parent parent))
-               #_#_editor (new SoftWrapPlugin view)]
+         (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
            (log/info "=====Editor creating SoftWrapPlugin (editor-view): " editor)
            (when atm (reset! atm editor))
            (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
     ($ MuiBox {:ref (reset! diag2 ed-ref) :data "yes"})))
-
-#_(defnc Editor
-  [{:keys [editor-view atm]}]
-  (let [ed-ref (hooks/use-ref nil)]
-    (hooks/use-effect []
-       (when-let [parent (j/get ed-ref :current)]
-         (j/assoc! editor-view :dom parent)
-         (let [editor (new SoftWrapPlugin editor-view)]
-           (log/info "=====Editor creating SoftWrapPlugin (editor-view): " editor)
-           (when atm (reset! atm editor))
-           (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
-    ($ MuiBox {:ref ed-ref})))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
