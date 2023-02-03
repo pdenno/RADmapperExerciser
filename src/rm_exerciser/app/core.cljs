@@ -5,12 +5,14 @@
    [rm-exerciser.app.rm-mode.parser :as parser]
    [rm-exerciser.app.rm-mode.state :as state]
    [rad-mapper.evaluate :as ev]
-   ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
-   ["@codemirror/commands" :refer [history #_historyKeymap emacsStyleKeymap]]
-   ["@codemirror/state" :refer [EditorState]]
-   ["@codemirror/view" :as view :refer [EditorView ViewPlugin ViewUpdate MeasureRequest #_lineNumbers]]
+   ["@uiw/react-codemirror" :as rcm :refer [CodeMirror]] ; rcm is bound, CodeMirror is nil <=========================
+   ;; These from react-cm example
+   ;;["codemirror/keymap/sublime"]
+   ;;["codemirror/addon/display/autorefresh"]
+   ;;["codemirror/addon/comment/comment"]
+   ;;["codemirror/addon/edit/matchbrackets"]
    [applied-science.js-interop :as j]
-   ;["@mui/material/colors" :as colors]
+   ;;["@mui/material/colors" :as colors]
    ["@mui/material/Box$default" :as MuiBox]
    ["@mui/material/CssBaseline" :as CssBaseline]
    ;;["@mui/material/InputAdornment$default" :as InputAdornment]
@@ -68,7 +70,7 @@
 
 ;;; https://codemirror.net/examples/styling/
 ;;; https://github.com/FarhadG/code-mirror-themes/tree/master/themes
-(def editor-theme
+#_(def editor-theme
   (.theme EditorView
           (j/lit {".cm-editor" {:resize   "both"       ; Supposedly these allow it to be resized (when used with requestMeasure).
                                 :height   "auto"       ; https://discuss.codemirror.net/t/editor-variable-height/3523
@@ -145,7 +147,7 @@
     (j/assoc! view-state :editorHeight height)
     (log/info "=====Writing height =" height " editor-view =" editor-view)))
 
-(defn modify-geom
+#_(defn modify-geom
   "Called from SWP.update() when the argument update.geometryChanged = true."
   [#^EditorView editor-view]
   (log/info "============ modify-geom ====")
@@ -159,7 +161,7 @@
   "Set the height atom"
   [_something _width height]
   (reset! new-height height)
-  (let [#^EditorView view @code-editor-atm]
+  #_(let [#^EditorView view @code-editor-atm]
     (.requestMeasure
      view
      ^MeasureRequest (j/obj :read  measure-read
@@ -172,7 +174,7 @@
 (def diag-update (atom nil))
 
 ;;; https://stackoverflow.com/questions/61040644/clojurscript-extend-a-javascript-class
-(defclass SoftWrapPlugin
+#_(defclass SoftWrapPlugin
   (constructor [this init-data] ; init-data is a EditorView.
                (log/info "===== Constructor of SWP")
                (super init-data))
@@ -186,14 +188,14 @@
             (modify-geom (j/get update :view))
             (log/info "geometry did not changed."))))
 
-(def #^ViewPlugin soft-wrap
+#_(def #^ViewPlugin soft-wrap
   "A JS array (for extensions) that adds an .update method to EditorView for modifying geometry."
   #js [(.define ViewPlugin (fn [#^EditorView view]
                              (log/info "Plugin creating new SWP")
                              (new SoftWrapPlugin view)))])
 
 ;;; ToDo: Was defonce.
-(def extensions #js[editor-theme
+#_(def extensions #js[editor-theme
                     soft-wrap
                     ;;(lineNumbers) works, but ugly.
                     ;;(.. EditorState editorHeight (of 300)) ; WIP I'm guessing.
@@ -250,7 +252,7 @@
       on-result) ;; on-result is the set-result function from hooks/use-state.
   true)          ;; This is run for its side-effect.
 
-(defn add-result-action
+#_(defn add-result-action
   "Return the keymap updated with the partial for :on-result, I think!" ;<===
   [{:keys [on-result]}]
   (log/info "sci-eval Extension")
@@ -275,25 +277,18 @@
 (def diag2 (atom nil))
 
 (defnc Editor
-  [{:keys [editor-state atm]}]
-  (let [ed-ref (hooks/use-ref nil)]
-    (hooks/use-effect []
-       (when-let [parent (j/get ed-ref :current)]
-         (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
-           (log/info "=====Editor creating SoftWrapPlugin (editor-view): " editor)
-           (when atm (reset! atm editor))
-           (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
-    ($ MuiBox {:ref (reset! diag2 ed-ref) :data "yes"})))
+  [{:keys [code]}]
+  ($ CodeMirror {:value code}))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
 
 (defnc Top []
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
-        code-editor-state (state/make-state
+        #_#_code-editor-state (state/make-state
                            (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
                            (if @initialized? "" init-code))
-        data-editor-state (state/make-state
+        #_#_data-editor-state (state/make-state
                            #js [extensions]
                             (if @initialized? (get-user-data) init-data))] ; Problem here is that it adds it again! (get extra copies).
     (reset! initialized? true)
@@ -302,10 +297,10 @@
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
           "RADmapper")
        ($ ShareLeftRight
-          {:left  ($ Editor  {:editor-state data-editor-state :atm data-editor-atm})
+          {:left  ($ Editor  {:code init-data})
            :on-resize-left nil ; ToDo
            :right ($ ShareUpDown
-                     {:up ($ Editor {:editor-state code-editor-state :atm code-editor-atm})
+                     {:up ($ Editor {:code init-code})
                       :on-resize-up resize-editor
                       :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
            :or-resize-right nil})))) ; ToDo
@@ -324,5 +319,4 @@
 (defn ^{:after-load true, :dev/after-load true} mount-root []
   (.render root ($ app)))
 
-(defn ^:export init []
-  (mount-root))
+(defn ^:export init [] (mount-root))
