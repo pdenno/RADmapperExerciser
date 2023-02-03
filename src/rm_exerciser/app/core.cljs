@@ -159,17 +159,15 @@
   "Set the height atom"
   [_something _width height]
   (reset! new-height height)
-  (let [#^EditorView view @code-editor-atm]
+  (let [#^EditorView view @code-editor-atm
+        dom (j/get view :dom)] ; I think this should have been the parent of the editor, but this works.
+    ;; This is where it happens!
+    (.setAttribute dom "style" (str "height:" (int height) "px"))
     (.requestMeasure
      view
      ^MeasureRequest (j/obj :read  measure-read
                             :write measure-write
-                            :key "editorHeight")))
-  ;#(j/assoc-in! @code-editor-atm [:viewState :contentDOMHeight] height)
-  ;#(j/assoc-in! @code-editor-atm [:viewState :editorHeight] height)
-  (log/info "resize-editor: new-height = " @new-height))
-
-(def diag-update (atom nil))
+                            :key "editorHeight"))))
 
 ;;; https://stackoverflow.com/questions/61040644/clojurscript-extend-a-javascript-class
 (defclass SoftWrapPlugin
@@ -180,8 +178,6 @@
   Object
   (update [this #^ViewUpdate update]
           (log/info "Call to SWP.update() update =" update)
-          (reset! diag-update update)
-          (reset! code-editor-atm (j/get update :view))
           (if (j/get update :geometryChanged) ; It WILL work! (I checked.)
             (modify-geom (j/get update :view))
             (log/info "geometry did not changed."))))
@@ -282,8 +278,9 @@
          (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
            (log/info "=====Editor creating SoftWrapPlugin (editor-view): " editor)
            (when atm (reset! atm editor))
-           (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
-    ($ MuiBox {:ref (reset! diag2 ed-ref) :data "yes"})))
+           (j/assoc-in! ed-ref [:current :editor] editor)
+           (reset! diag2 ed-ref)))) ; Nice!
+    ($ MuiBox {:ref ed-ref})))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
@@ -326,3 +323,14 @@
 
 (defn ^:export init []
   (mount-root))
+
+(def diag3 (atom nil))
+
+(defn get-style [dom]
+  (reduce (fn [m k]
+            (let [v (j/get dom (keyword k))]
+              (if-let [val (and (not= v "") v)]
+                (assoc m (keyword k) val)
+                m)))
+          {}
+          (->> (-> dom (j/get :style) js-keys js->clj) (filter string?))))
