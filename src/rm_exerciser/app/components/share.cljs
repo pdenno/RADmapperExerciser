@@ -14,41 +14,38 @@
   "Create a Stack with two children (props :up and :down) where the
    area shared between the two can be distributed by dragging the Stack divider,
    a black bar that could be viewed as the frame dividing the two."
-  [{:keys [up dn on-resize-up on-resize-dn init-width] :or {init-width 500}}]
+  [{:keys [up dn on-resize-up on-resize-dn init-width init-height] :or {init-width 500}}]
   {:helix/features {:check-invalid-hooks-usage true}}
   ;; ToDo: Get the parent's height here or pass it in.
-  (let [[up-height set-up-height] (hooks/use-state {:size 200 #_(- (j/get up-bounds :bottom) (j/get up-bounds :top))})
-        [dn-height set-dn-height] (hooks/use-state {:size 200})
-        [width set-width]         (hooks/use-state init-width)
+  (let [[up-height set-up-height]  (hooks/use-state {:size 200})
+        [dn-height set-dn-height]  (hooks/use-state {:size 200})
+        [width  _set-width]        (hooks/use-state init-width)
+        [height _set-width]        (hooks/use-state init-height)
         u-ref (hooks/use-ref nil)
         d-ref (hooks/use-ref nil)
-        ref (hooks/use-ref nil) ; ToDO: Not sure about doing this!
         mouse-down? (atom false)] ; ToDo: Why is this necessary? (It is necessary.)
-    (hooks/use-effect [width] ; <================================================================= This doesn't work
-       (when-let [parent (j/get ref :current)] ; ToDo: Can't use something simpler???
-         (let [lbound (j/get (.getBoundingClientRect parent) :left)
-               rbound (j/get (.getBoundingClientRect parent) :right)
-               width (- rbound lbound)]
-           (log/info "===== Setting width to " width)
-           (set-width width))))
-    (letfn [(do-drag [e]
-              (when @mouse-down?
-                (when-let [ubox (j/get u-ref :current)]
-                  (reset! diag {:u-ref u-ref :ubox ubox :up up})
-                  (when-let [dbox (j/get d-ref :current)]
-                    (let [ubound (j/get (.getBoundingClientRect ubox) :top)
-                          dbound (j/get (.getBoundingClientRect dbox) :bottom)
-                          height (- dbound ubound)
-                          mouse-y (j/get e .-clientY)]
+    (letfn [(share-height [e]
+              (when-let [udom (j/get u-ref :current)]
+                (when-let [ddom (j/get d-ref :current)]
+                  (reset! diag {:udom udom :ddom ddom})
+                  (let [parent (j/get udom :parentNode)
+                        ubound (j/get (.getBoundingClientRect parent) :top)
+                        dbound (j/get (.getBoundingClientRect parent) :bottom)
+                        height (- dbound ubound)
+                        mouse-y (j/get e .-clientY)]
                       (when (<  ubound mouse-y dbound)
                         (let [up-fraction (- 1.0 (/ (- dbound mouse-y) (- dbound ubound)))
                               up-size (int (* up-fraction       height))
                               dn-size (int (* (- 1 up-fraction) height))]
-                          (js/console.log "up-size = " up-size " dn-size = " dn-size)
+                          (js/console.log "height = " height " up-size = " up-size " dn-size = " dn-size)
                           (set-up-height {:size up-size})
                           (set-dn-height {:size dn-size})
+                          (.setAttribute udom "style" (str "height:" up-size "px"))
+                          (.setAttribute ddom "style" (str "height:" dn-size "px"))
+                          (log/info "up = " up-size " dn = " dn-size)
                           (when on-resize-up (on-resize-up up width up-size))
-                          (when on-resize-dn (on-resize-dn dn width dn-size)))))))))
+                          (when on-resize-dn (on-resize-dn dn width dn-size))))))))
+            (do-drag [e] (when @mouse-down? (share-height e)))
             (start-drag [_e]
               (reset! mouse-down? true)
               (js/document.addEventListener "mouseup"   stop-drag)
@@ -58,14 +55,9 @@
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
       ($ Stack
-         {:direction "column" :display "flex" :height "100%" :alignItems "stretch" ; does nothing
-          :width     "100%"  :spacing   0
-          :divider ($ Divider {:variant "active-horiz"
-                               :height 5
-                               :onMouseDown start-drag
-                               :onMouseMove do-drag
-                               :onMouseUp   stop-drag
-                               :color "black"})}
+         {:direction "column" :display "flex" :width  "100%":height "100%" :alignItems "stretch" :spacing 0
+          :divider ($ Divider {:variant "active-horiz" :height 5 :color "black"
+                               :onMouseDown start-drag :onMouseMove do-drag :onMouseUp stop-drag})}
          ($ MuiBox {:ref u-ref :height (:size up-height)}
             up)
          ($ MuiBox {:ref d-ref :height (:size dn-height)}
@@ -111,5 +103,7 @@
                                :onMouseMove do-drag
                                :onMouseUp   stop-drag
                                :color "black"})}
-         ($ MuiBox {:ref l-ref :width (:size lwidth)} left)
-         ($ MuiBox {:ref r-ref :width (:size rwidth)} right)))))
+         ($ MuiBox {:ref l-ref :width (:size lwidth)}
+            left)
+         ($ MuiBox {:ref r-ref :width (:size rwidth)}
+            right)))))

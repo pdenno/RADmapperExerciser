@@ -56,51 +56,31 @@
                                      #_#_:style {:multiline true
                                                  :width 200}}]}}})))
 
-
-;;; https://codemirror.net/docs/ref/
-;;; The most important modules are state, which contains the data structures that model the editor state, and
-;;; view, which provides the UI component for an editor
-
-;;; https://codemirror.net/docs/ref/#state.EditorStateConfig.extensions
-;;; The editor state class is a persistent (immutable) data structure.
-;;; To update a state, you create a transaction, which produces a new state instance, without modifying the original object.
-;;; As such, never mutate properties of a state directly. That'll just break things.
-
 ;;; https://codemirror.net/examples/styling/
 ;;; https://github.com/FarhadG/code-mirror-themes/tree/master/themes
 (def editor-theme
   (.theme EditorView
-          (j/lit {".cm-editor" {:resize   "both"       ; Supposedly these allow it to be resized (when used with requestMeasure).
-                                :height   "auto"       ; https://discuss.codemirror.net/t/editor-variable-height/3523
-                                :overflow "hidden"}    ; https://discuss.codemirror.net/t/resizing-codemirror-6/3265
-
-                  #_#_".cm-editor[style*=\"height\"]" {:max-height "unset"} ; https://discuss.codemirror.net/t/editor-variable-height/3523
-                  #_#_".cm-content" {:white-space "pre-wrap"
-                                 :padding "5px 0"
-                                 ;;:height "fit-content !important" ; guessing does nothing
+          (j/lit {".cm-editor" {:resize   "both"         ; Supposedly these allow it to be resized (when used with requestMeasure).
+                                :height   "auto"         ; https://discuss.codemirror.net/t/editor-variable-height/3523
+                                :overflow "hidden"}
+                  ".cm-content" {:white-space "pre-wrap"
+                                 :padding "5px 0"        ; Allows wrapping
                                  :height "auto"
                                  :flex "1 1 0"}
-                  ".cm-scroller" {:overflow "auto"}
                   ".cm-wrap"     {:border "1px solid silver"}
                   ".cm-comment" {:color "#9933CC"}
-                  ;;".cm-linenumber" {:color "#969896"} ; guessing from FarhadG
                   "&.cm-focused" {:outline "0 !important"}
                   ".cm-line" {:padding "0 9px"
                               :line-height "1.1"
-                              ; :color "red" WORKS!
                               :font-size "11px"
                               :font-family "'JetBrains Mono', monospace"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                          :color "inherit"}
                   ".cm-gutters" {:background "lightgray" ;"transparent"
-                                                         ;:box-shadow "1px 0 2px 0 rgba(0, 0, 0, 0.5)" ; works
-                                 :lineNumbers true       ; guessing does nothing
                                  :border "none"}
-                  ".cm-gutter, .cm-content" {:maxHeight "110px" ; <======= works if .cm-editor is okay.
-                                             :overflow "auto"}  ; scroll bars appear as needed.
+                  ".cm-gutter, .cm-content" {:overflow "auto"}  ; scroll bars appear as needed.
                   ".cm-gutterElement" {:margin-left "5px"}
-                  ;; only show cursor when focused
-                  ".cm-cursor" {:visibility "hidden"}
+                  ".cm-cursor" {:visibility "hidden"} ; only show cursor when focused
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
 (def init-data
@@ -163,34 +143,32 @@
         dom (j/get view :dom)] ; I think this should have been the parent of the editor, but this works.
     ;; This is where it happens!
     (.setAttribute dom "style" (str "height:" (int height) "px"))
-    (.requestMeasure
+    #_(.requestMeasure
      view
      ^MeasureRequest (j/obj :read  measure-read
                             :write measure-write
                             :key "editorHeight"))))
 
-;;; https://stackoverflow.com/questions/61040644/clojurscript-extend-a-javascript-class
 (defclass SoftWrapPlugin
   (constructor [this init-data] ; init-data is a EditorView.
-               (log/info "===== Constructor of SWP")
                (super init-data))
   ;; adds regular method, protocols similar to deftype/defrecord also supported
   Object
   (update [this #^ViewUpdate update]
-          (log/info "Call to SWP.update() update =" update)
-          (if (j/get update :geometryChanged) ; It WILL work! (I checked.)
-            (modify-geom (j/get update :view))
-            (log/info "geometry did not changed."))))
+          (when (j/get update :geometryChanged) ; It WILL work! (I checked.)
+              (.requestMeasure
+               (j/get update :view)
+               ^MeasureRequest (j/obj :read  measure-read
+                                      :write measure-write
+                                      :key "editorHeight")))))
 
 (def #^ViewPlugin soft-wrap
   "A JS array (for extensions) that adds an .update method to EditorView for modifying geometry."
   #js [(.define ViewPlugin (fn [#^EditorView view]
-                             (log/info "Plugin creating new SWP")
                              (new SoftWrapPlugin view)))])
 
-;;; ToDo: Was defonce.
-(def extensions #js[editor-theme
-                    soft-wrap
+(defonce extensions #js[editor-theme
+                        soft-wrap
                     ;;(lineNumbers) works, but ugly.
                     ;;(.. EditorState editorHeight (of 300)) ; WIP I'm guessing.
                     (history) ; This means you can undo things!
@@ -263,12 +241,9 @@
   ($ TextField {:sx {:color "text.secondary"}
                 :multiline true
                 :minRows 4
-                ;;:inputProps {:endAdornment ($ InputAdornment {:position "end"} "Baz")}
                 :fullWidth true
                 :placeholder "Ctrl-Enter above to execute."
                 :value result}))
-
-(def diag2 (atom nil))
 
 (defnc Editor
   [{:keys [editor-state atm]}]
@@ -276,10 +251,8 @@
     (hooks/use-effect []
        (when-let [parent (j/get ed-ref :current)]
          (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
-           (log/info "=====Editor creating SoftWrapPlugin (editor-view): " editor)
            (when atm (reset! atm editor))
-           (j/assoc-in! ed-ref [:current :editor] editor)
-           (reset! diag2 ed-ref)))) ; Nice!
+           (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
     ($ MuiBox {:ref ed-ref})))
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
@@ -287,11 +260,11 @@
 
 (defnc Top []
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
-        code-editor-state (state/make-state
-                           (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
-                           (if @initialized? "" init-code))
-        data-editor-state (state/make-state
-                           #js [extensions]
+        code-editor-state   (state/make-state
+                             (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
+                             (if @initialized? "" init-code))
+        data-editor-state  (state/make-state
+                            #js [extensions]
                             (if @initialized? (get-user-data) init-data))] ; Problem here is that it adds it again! (get extra copies).
     (reset! initialized? true)
     ($ Stack {:direction "column" :spacing 0}
@@ -323,8 +296,6 @@
 
 (defn ^:export init []
   (mount-root))
-
-(def diag3 (atom nil))
 
 (defn get-style [dom]
   (reduce (fn [m k]
