@@ -11,14 +11,13 @@
    ["@codemirror/view" :as view :refer [EditorView ViewPlugin ViewUpdate MeasureRequest #_lineNumbers]]
    [applied-science.js-interop :as j]
    ;["@mui/material/colors" :as colors]
-   ["@mui/material/Box$default" :as MuiBox]
    ["@mui/material/CssBaseline" :as CssBaseline]
    ;;["@mui/material/InputAdornment$default" :as InputAdornment]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
    ["@mui/material/TextField$default" :as TextField]
-   [rm-exerciser.app.components.share :refer [ShareUpDown ShareLeftRight]]
+   [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight resize-default]]
    [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
    [helix.dom :as d]
@@ -106,79 +105,24 @@
 
    $reduce($bSet, $eFn) )")
 
-#_(def init-code "***small code****")
+;;;(def init-code "***small code****")
 
 ;;; ToDo: Find a more react idiomatic way to do these.
 (def new-height "For communication between resize-editor and measure-write" (atom nil))
 (def data-editor-atm "Set to an EditorView object" (atom nil))
-(def code-editor-atm "Set to an EditorView object" (atom nil))
-
-(defn measure-read ; ToDo: rename these (geom-change etc.)
-  "Returns the ViewState object so that measure-write can operate on it."
-  [editor-view]
-  (log/info "=====Reading height " (j/get-in editor-view [:viewState :editorHeight]))
-  (j/get editor-view :viewState))
-
-(defn measure-write [view-state editor-view]
-  (when-let [height @new-height]
-    (j/assoc! view-state :contentDOMHeight height)
-    (j/assoc! view-state :editorHeight height)
-    (log/info "=====Writing height =" height " editor-view =" editor-view)))
-
-(defn modify-geom
-  "Called from SWP.update() when the argument update.geometryChanged = true."
-  [#^EditorView editor-view]
-  (log/info "============ modify-geom ====")
-  (.requestMeasure
-   editor-view
-   ^MeasureRequest (j/obj :read  measure-read
-                          :write measure-write
-                          :key "editorHeight")))
-
-(defn resize-editor
-  "Set the height atom"
-  [_something _width height]
-  (reset! new-height height)
-  (let [#^EditorView view @code-editor-atm
-        dom (j/get view :dom)] ; I think this should have been the parent of the editor, but this works.
-    ;; This is where it happens!
-    (.setAttribute dom "style" (str "height:" (int height) "px"))
-    #_(.requestMeasure
-     view
-     ^MeasureRequest (j/obj :read  measure-read
-                            :write measure-write
-                            :key "editorHeight"))))
-
-(defclass SoftWrapPlugin
-  (constructor [this init-data] ; init-data is a EditorView.
-               (super init-data))
-  ;; adds regular method, protocols similar to deftype/defrecord also supported
-  Object
-  (update [this #^ViewUpdate update]
-          (when (j/get update :geometryChanged) ; It WILL work! (I checked.)
-              (.requestMeasure
-               (j/get update :view)
-               ^MeasureRequest (j/obj :read  measure-read
-                                      :write measure-write
-                                      :key "editorHeight")))))
-
-(def #^ViewPlugin soft-wrap
-  "A JS array (for extensions) that adds an .update method to EditorView for modifying geometry."
-  #js [(.define ViewPlugin (fn [#^EditorView view]
-                             (new SoftWrapPlugin view)))])
-
+#_(def code-editor-atm "Set to an EditorView object" (atom nil))
 (defonce extensions #js[editor-theme
-                        soft-wrap
-                    ;;(lineNumbers) works, but ugly.
-                    ;;(.. EditorState editorHeight (of 300)) ; WIP I'm guessing.
-                    (history) ; This means you can undo things!
-                    (syntaxHighlighting defaultHighlightStyle)
-                    (view/drawSelection)
-                    (foldGutter)
-                    (.. EditorState -allowMultipleSelections (of true))
-                    parser/default-extensions ; related to fold gutter, at least
-                    (.of view/keymap parser/complete-keymap)
-                    (.of view/keymap emacsStyleKeymap #_historyKeymap)])
+                        ;;soft-wrap
+                        ;;(lineNumbers) works, but ugly.
+                        ;;(.. EditorState editorHeight (of 300)) ; WIP I'm guessing.
+                        (history) ; This means you can undo things!
+                        (syntaxHighlighting defaultHighlightStyle)
+                        (view/drawSelection)
+                        (foldGutter)
+                        (.. EditorState -allowMultipleSelections (of true))
+                        parser/default-extensions ; related to fold gutter, at least
+                        (.of view/keymap parser/complete-keymap)
+                        (.of view/keymap emacsStyleKeymap #_historyKeymap)])
 
 ;;; Problem: This is using the atom data-editor-atm, which isn't reliable for some reason.
 ;;; The following is from https://codemirror.net/docs/migration/
@@ -245,15 +189,27 @@
                 :placeholder "Ctrl-Enter above to execute."
                 :value result}))
 
+(defn resize-editor
+  "Set dimension of the EditorView for share."
+  [parent width height]
+  (resize-default parent width height)
+  (let [dom (-> parent (j/get :children) (.item 0) (j/get-in [:view :dom]))]
+    ;(log/info "Editor component is " (-> parent (j/get :children) (.item 0) (j/get :id)))
+    (when width  (j/assoc-in! dom [:style :width]  (str width  "px")))
+    (when height (j/assoc-in! dom [:style :height] (str height "px")))))
+
 (defnc Editor
-  [{:keys [editor-state atm]}]
-  (let [ed-ref (hooks/use-ref nil)]
+  [{:keys [editor-state init-height atm name]}]
+  (let [ed-ref (hooks/use-ref nil)
+        view-dom (atom nil)]
     (hooks/use-effect []
        (when-let [parent (j/get ed-ref :current)]
-         (let [editor (new EditorView (j/obj :state editor-state :parent parent))]
-           (when atm (reset! atm editor))
-           (j/assoc-in! ed-ref [:current :editor] editor)))) ; Nice!
-    ($ MuiBox {:ref ed-ref})))
+         (let [view (new EditorView (j/obj :state editor-state :parent parent))]
+           (j/assoc-in! view [:dom :style :height] (str init-height "px"))
+           (reset! view-dom (j/get view :dom))
+           (when atm (reset! atm view))
+           (j/assoc-in! ed-ref [:current :view] view)))) ; Nice!
+    (d/div {:ref ed-ref :id name :width "100%"} @view-dom))) ; :width not helping!
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
@@ -263,22 +219,21 @@
         code-editor-state   (state/make-state
                              (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
                              (if @initialized? "" init-code))
-        data-editor-state  (state/make-state
-                            #js [extensions]
-                            (if @initialized? (get-user-data) init-data))] ; Problem here is that it adds it again! (get extra copies).
+        data-editor-state   (state/make-state
+                             #js [extensions]
+                             (if @initialized? (get-user-data) init-data))]
     (reset! initialized? true)
     ($ Stack {:direction "column" :spacing 0}
        ($ Typography
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
           "RADmapper")
        ($ ShareLeftRight
-          {:left  ($ Editor  {:editor-state data-editor-state :atm data-editor-atm})
-           :on-resize-left nil ; ToDo
+          {:left  ($ Editor  {:editor-state data-editor-state :name "data-editor" #_#_:atm data-editor-atm})
            :right ($ ShareUpDown
-                     {:up ($ Editor {:editor-state code-editor-state :atm code-editor-atm})
+                     {:init-height 600 ; ToDo: Fix this (and next)
+                      :up ($ Editor {:editor-state code-editor-state :name "code-editor" #_#_:atm code-editor-atm :init-height 130})
                       :on-resize-up resize-editor
-                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
-           :or-resize-right nil})))) ; ToDo
+                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})}))))
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}

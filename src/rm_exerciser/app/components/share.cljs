@@ -2,7 +2,6 @@
   (:require
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/Divider$default" :as Divider]
-   ["@mui/material/Box$default" :as MuiBox]
    [applied-science.js-interop :as j]
    [helix.core :refer [defnc $]]
    [helix.hooks :as hooks]
@@ -10,42 +9,49 @@
 
 (def diag (atom nil))
 
+(defn resize-default
+  "Set dimension of parent the EditorView."
+  [parent width height]
+  ;(log/info "resize default: parent = " (j/get parent :id) "height = " height)
+  (when width  (j/assoc-in! parent [:style :width]  (str width  "px")))
+  (when height (j/assoc-in! parent [:style :height] (str height "px"))))
+
 (defnc ShareUpDown
   "Create a Stack with two children (props :up and :down) where the
    area shared between the two can be distributed by dragging the Stack divider,
    a black bar that could be viewed as the frame dividing the two."
-  [{:keys [up dn on-resize-up on-resize-dn init-width init-height] :or {init-width 500}}]
+  [{:keys [up dn init-height on-resize-up on-resize-dn]
+    :or {on-resize-up resize-default on-resize-dn resize-default init-height 300}}]
   {:helix/features {:check-invalid-hooks-usage true}}
   ;; ToDo: Get the parent's height here or pass it in.
-  (let [[up-height set-up-height]  (hooks/use-state {:size 200})
-        [dn-height set-dn-height]  (hooks/use-state {:size 200})
-        [width  _set-width]        (hooks/use-state init-width)
-        [height _set-width]        (hooks/use-state init-height)
+  (let [[up-height set-up-height]  (hooks/use-state (int (/ init-height 2)))
+        [dn-height set-dn-height]  (hooks/use-state (int (/ init-height 2)))
+        [parent-height]            (hooks/use-state init-height)
         u-ref (hooks/use-ref nil)
         d-ref (hooks/use-ref nil)
         mouse-down? (atom false)] ; ToDo: Why is this necessary? (It is necessary.)
-    (letfn [(share-height [e]
-              (when-let [udom (j/get u-ref :current)]
-                (when-let [ddom (j/get d-ref :current)]
-                  (reset! diag {:udom udom :ddom ddom})
-                  (let [parent (j/get udom :parentNode)
+    (letfn [(parent-dims []
+              (when-let [uparent (j/get u-ref :current)]
+                (when-let [dparent (j/get d-ref :current)]
+                  (let [parent (j/get uparent :parentNode)
                         ubound (j/get (.getBoundingClientRect parent) :top)
                         dbound (j/get (.getBoundingClientRect parent) :bottom)
-                        height (- dbound ubound)
-                        mouse-y (j/get e .-clientY)]
-                      (when (<  ubound mouse-y dbound)
-                        (let [up-fraction (- 1.0 (/ (- dbound mouse-y) (- dbound ubound)))
-                              up-size (int (* up-fraction       height))
-                              dn-size (int (* (- 1 up-fraction) height))]
-                          (js/console.log "height = " height " up-size = " up-size " dn-size = " dn-size)
-                          (set-up-height {:size up-size})
-                          (set-dn-height {:size dn-size})
-                          (.setAttribute udom "style" (str "height:" up-size "px"))
-                          (.setAttribute ddom "style" (str "height:" dn-size "px"))
-                          (log/info "up = " up-size " dn = " dn-size)
-                          (when on-resize-up (on-resize-up up width up-size))
-                          (when on-resize-dn (on-resize-dn dn width dn-size))))))))
-            (do-drag [e] (when @mouse-down? (share-height e)))
+                        height (- parent-height 5)] ; minus divider.
+                    {:ubound ubound :dbound dbound :height height}))))
+            (set-dims [mouse-y]
+              (when-let [uparent (j/get u-ref :current)]
+                (when-let [dparent (j/get d-ref :current)]
+                  (let [{:keys [ubound dbound height]} (parent-dims)
+                        up-fraction (- 1.0 (/ (- dbound mouse-y) (- dbound ubound)))
+                        up-size (* up-fraction  height)
+                        dn-size (* (- 1 up-fraction) height)]
+                    (when (<= ubound mouse-y dbound)
+                      (set-up-height up-size)
+                      (set-dn-height dn-size)
+                      (on-resize-up uparent nil up-size)
+                      (on-resize-dn dparent nil dn-size)
+                      #_(reset! diag {:ubound ubound :dbound dbound :height height :uparent uparent :dparent dparent}))))))
+            (do-drag [e] (reset! diag e) (when @mouse-down? (-> e (j/get :clientY) set-dims)))
             (start-drag [_e]
               (reset! mouse-down? true)
               (js/document.addEventListener "mouseup"   stop-drag)
@@ -54,13 +60,20 @@
               (reset! mouse-down? false)
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
+      (hooks/use-effect []
+        (when-let [uparent (j/get u-ref :current)]
+          (when-let [dparent (j/get d-ref :current)]
+            (let [parent (j/get uparent :parentNode)
+                  ubound (j/get (.getBoundingClientRect parent) :top)
+                  dbound (j/get (.getBoundingClientRect parent) :bottom)]
+              (set-dims (/ (- dbound ubound) 2))))))
       ($ Stack
-         {:direction "column" :display "flex" :width  "100%":height "100%" :alignItems "stretch" :spacing 0
+         {:direction "column" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
           :divider ($ Divider {:variant "active-horiz" :height 5 :color "black"
                                :onMouseDown start-drag :onMouseMove do-drag :onMouseUp stop-drag})}
-         ($ MuiBox {:ref u-ref :height (:size up-height)}
+         ($ "div" {:ref u-ref :height up-height :id "up-div"}
             up)
-         ($ MuiBox {:ref d-ref :height (:size dn-height)}
+         ($ "div" {:ref d-ref :height dn-height :id "dn-div"}
             dn)))))
 
 (defnc ShareLeftRight
@@ -82,7 +95,7 @@
                   (when-let [lbox (j/get l-ref :current)]
                     (let [lbound (j/get (.getBoundingClientRect lbox) :left)
                           rbound (j/get (.getBoundingClientRect rbox) :right)
-                          mouse-x (j/get e .-clientX)]
+                          mouse-x (j/get e :clientX)]
                       (when (<  lbound mouse-x rbound)
                         (let [lpct (int (* 100 (/ (- mouse-x lbound) (- rbound lbound))))]
                           (set-lwidth {:size (str lpct "%")})
@@ -96,14 +109,10 @@
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
       ($ Stack
-         {:direction "row" :display   "flex" :spacing 0 :alignItems "stretch" ; does nothing
-          :divider ($ Divider {:variant "active-vert"
-                               :width 5
-                               :onMouseDown start-drag
-                               :onMouseMove do-drag
-                               :onMouseUp   stop-drag
-                               :color "black"})}
-         ($ MuiBox {:ref l-ref :width (:size lwidth)}
+         {:direction "row" :display "flex" :spacing 0 :alignItems "stretch" ; does nothing
+          :divider ($ Divider {:variant "active-vert" :width 5 :color "black"
+                               :onMouseDown start-drag :onMouseMove do-drag :onMouseUp stop-drag})}
+         ($ "div" {:ref l-ref :width (:size lwidth)}
             left)
-         ($ MuiBox {:ref r-ref :width (:size rwidth)}
+         ($ "div" {:ref r-ref :width (:size rwidth)}
             right)))))
