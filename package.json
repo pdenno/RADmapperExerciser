@@ -20,7 +20,6 @@
     "@lezer/lr": "1.2.3",
     "@mui/icons-material": "^5.11.0",
     "@mui/material": "^5.11.3",
-    "cm6-theme-material-dark": "^0.2.0",
     "codemirror": "^6.0.1",
     "lezer-clojure": "1.0.0-rc.2",
     "nata-borrowed": "^1.0.5",

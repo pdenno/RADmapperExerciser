@@ -7,7 +7,15 @@
    [helix.hooks :as hooks]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
+;;; ToDo:
+;;;   (1) The on-resize-x methods should not be necessary. It should be the case that resizing the parent
+;;;       resizes the child too. So far, this is not the case with CodeMirror editor, but see
+;;;       https://discuss.codemirror.net/t/editor-variable-height/3523. Might not be true of mui/TextArea either.
+;;;   (2) Is there a way to factor out start-drag, stop-drag, and drag methods?
+;;;   (3) pct-up on ShareUpDown.
+
 (def diag (atom nil))
+(def mouse-down? "Should not be necessary, but it appears it is." (atom false))
 
 (defn resize-default
   "Set dimension of parent the EditorView."
@@ -23,35 +31,27 @@
   [{:keys [up dn init-height on-resize-up on-resize-dn]
     :or {on-resize-up resize-default on-resize-dn resize-default init-height 300}}]
   {:helix/features {:check-invalid-hooks-usage true}}
-  ;; ToDo: Get the parent's height here or pass it in.
-  (let [[up-height set-up-height]  (hooks/use-state (int (/ init-height 2)))
-        [dn-height set-dn-height]  (hooks/use-state (int (/ init-height 2)))
-        [parent-height]            (hooks/use-state init-height)
-        u-ref (hooks/use-ref nil)
-        d-ref (hooks/use-ref nil)
-        mouse-down? (atom false)] ; ToDo: Why is this necessary? (It is necessary.)
-    (letfn [(parent-dims []
-              (when-let [uparent (j/get u-ref :current)]
-                (when-let [dparent (j/get d-ref :current)]
-                  (let [parent (j/get uparent :parentNode)
-                        ubound (j/get (.getBoundingClientRect parent) :top)
-                        dbound (j/get (.getBoundingClientRect parent) :bottom)
-                        height (- parent-height 5)] ; minus divider.
-                    {:ubound ubound :dbound dbound :height height}))))
-            (set-dims [mouse-y]
-              (when-let [uparent (j/get u-ref :current)]
-                (when-let [dparent (j/get d-ref :current)]
-                  (let [{:keys [ubound dbound height]} (parent-dims)
+  (let [[up-height set-up-height]     (hooks/use-state (int (/ init-height 2)))
+        [dn-height set-dn-height]     (hooks/use-state (int (/ init-height 2)))
+        [parent-dims set-parent-dims] (hooks/use-state {:height init-height :ubound nil :dbound nil})
+        u-div (hooks/use-ref nil)
+        d-div (hooks/use-ref nil)]
+    (letfn [(set-dims [mouse-y] ; Essentially, puts border at mouse-y
+              (when-let [udiv (j/get u-div :current)]
+                (when-let [ddiv (j/get d-div :current)]
+                  (let [{:keys [ubound dbound height]} parent-dims
                         up-fraction (- 1.0 (/ (- dbound mouse-y) (- dbound ubound)))
                         up-size (* up-fraction  height)
                         dn-size (* (- 1 up-fraction) height)]
                     (when (<= ubound mouse-y dbound)
                       (set-up-height up-size)
                       (set-dn-height dn-size)
-                      (on-resize-up uparent nil up-size)
-                      (on-resize-dn dparent nil dn-size)
-                      #_(reset! diag {:ubound ubound :dbound dbound :height height :uparent uparent :dparent dparent}))))))
-            (do-drag [e] (reset! diag e) (when @mouse-down? (-> e (j/get :clientY) set-dims)))
+                      (on-resize-up udiv nil up-size)
+                      (on-resize-dn ddiv nil dn-size)
+                      #_(log/info "upsize = " up-size " dn-size = " dn-size))))))
+            (do-drag [e] (when @mouse-down?
+                           #_(log/info "mouse-y :" (j/get e :clientY))
+                           (-> e (j/get :clientY) set-dims)))
             (start-drag [_e]
               (reset! mouse-down? true)
               (js/document.addEventListener "mouseup"   stop-drag)
@@ -61,45 +61,49 @@
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
       (hooks/use-effect []
-        (when-let [uparent (j/get u-ref :current)]
-          (when-let [dparent (j/get d-ref :current)]
-            (let [parent (j/get uparent :parentNode)
-                  ubound (j/get (.getBoundingClientRect parent) :top)
-                  dbound (j/get (.getBoundingClientRect parent) :bottom)]
-              (set-dims (/ (- dbound ubound) 2))))))
+        (when-let [udiv (j/get u-div :current)]
+          (when-let [ddiv (j/get d-div :current)]
+            (let [ubound (j/get (.getBoundingClientRect udiv) :top)
+                  dbound (+ ubound init-height)]
+              (set-parent-dims {:height init-height :ubound ubound :dbound dbound})
+              (on-resize-up udiv nil (int (- (/ init-height 2) 2)))
+              (on-resize-dn ddiv nil (int (- (/ init-height 2) 2)))
+              #_(log/info "use-effect setting border in middle: " (+ ubound (/ init-height 2)))))))
       ($ Stack
          {:direction "column" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
-          :divider ($ Divider {:variant "active-horiz" :height 5 :color "black"
+          :divider ($ Divider {:variant "activeHoriz" :color "black"
                                :onMouseDown start-drag :onMouseMove do-drag :onMouseUp stop-drag})}
-         ($ "div" {:ref u-ref :height up-height :id "up-div"}
+         ($ "div" {:ref u-div :height up-height :id "up-div"}
             up)
-         ($ "div" {:ref d-ref :height dn-height :id "dn-div"}
+         ($ "div" {:ref d-div :height dn-height :id "dn-div"}
             dn)))))
 
 (defnc ShareLeftRight
-  "Create a Stack with two children (props :left and :right) where the
+  "Create a Stack with two children (props :up and :down) where the
    area shared between the two can be distributed by dragging the Stack divider,
-   a black bar that could be viewed as the frame dividing the two.
-   Optional :height (defaults to 300px) can be used to give height other than
-   that needed to fit the children. "
-  [{:keys [left right init-left init-right] :or {init-left "60%" init-right "40%"}}]
+   a black bar that could be viewed as the frame dividing the two."
+  [{:keys [left right init-width on-resize-left on-resize-right lf-pct]
+    :or {on-resize-left resize-default on-resize-right resize-default init-width 800 lf-pct 0.50}}]
   {:helix/features {:check-invalid-hooks-usage true}}
-  (let [[lwidth set-lwidth] (hooks/use-state {:size init-left})
-        [rwidth set-rwidth] (hooks/use-state {:size init-right})
-        l-ref (hooks/use-ref nil)
-        r-ref (hooks/use-ref nil)
-        mouse-down? (atom false)]
-    (letfn [(do-drag [e]
-              (when @mouse-down?
-                (when-let [rbox (j/get r-ref :current)]
-                  (when-let [lbox (j/get l-ref :current)]
-                    (let [lbound (j/get (.getBoundingClientRect lbox) :left)
-                          rbound (j/get (.getBoundingClientRect rbox) :right)
-                          mouse-x (j/get e :clientX)]
-                      (when (<  lbound mouse-x rbound)
-                        (let [lpct (int (* 100 (/ (- mouse-x lbound) (- rbound lbound))))]
-                          (set-lwidth {:size (str lpct "%")})
-                          (set-rwidth {:size (str (- 100 lpct) "%")}))))))))
+  (let [[lf-width set-lf-width]       (hooks/use-state (int (*      lf-pct  (/ init-width 2))))
+        [rt-width set-rt-width]       (hooks/use-state (int (* (- 1 lf-pct) (/ init-width 2))))
+        [parent-dims set-parent-dims] (hooks/use-state {:width init-width :lbound nil :rbound nil})
+        l-div (hooks/use-ref nil)
+        r-div (hooks/use-ref nil)]
+    (letfn [(set-dims [mouse-x] ; Essentially, puts border at mouse-x
+              (when-let [ldiv (j/get l-div :current)]
+                (when-let [rdiv (j/get r-div :current)]
+                  (let [{:keys [lbound rbound width]} parent-dims
+                        lf-fraction (- 1.0 (/ (- rbound mouse-x) (- rbound lbound)))
+                        lf-size (* lf-fraction  width)
+                        rt-size (* (- 1 lf-fraction) width)]
+                    (when (<= lbound mouse-x rbound)
+                      (set-lf-width lf-size)
+                      (set-rt-width rt-size)
+                      (on-resize-left  ldiv lf-size nil)
+                      (on-resize-right rdiv rt-size nil)
+                      #_(log/info "lfsize = " lf-size " rt-size = " rt-size))))))
+            (do-drag [e] (when @mouse-down? (-> e (j/get :clientX) set-dims)))
             (start-drag [_e]
               (reset! mouse-down? true)
               (js/document.addEventListener "mouseup"   stop-drag)
@@ -108,11 +112,23 @@
               (reset! mouse-down? false)
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
+      (hooks/use-effect []
+        (when-let [ldiv (j/get l-div :current)]
+          (when-let [rdiv (j/get r-div :current)]
+            (let [parent (j/get ldiv :parentNode)
+                  lbound (j/get (.getBoundingClientRect parent) :left)
+                  rbound (+ lbound init-width)
+                  left-init  (int (*      lf-pct   (- init-width 2.5)))   ; minus 2.5 is border, roughly.
+                  right-init (int (* (- 1 lf-pct)  (- init-width 2.5)))]
+              (set-parent-dims {:width init-width :lbound lbound :rbound rbound})
+              (on-resize-left  ldiv left-init nil)
+              (on-resize-right rdiv right-init nil)
+              #_(log/info "use-effect: left-width = " left-init " right-init = " right-init)))))
       ($ Stack
-         {:direction "row" :display "flex" :spacing 0 :alignItems "stretch" ; does nothing
-          :divider ($ Divider {:variant "active-vert" :width 5 :color "black"
+         {:direction "row" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
+          :divider ($ Divider {:variant "activeVert" :color "black"
                                :onMouseDown start-drag :onMouseMove do-drag :onMouseUp stop-drag})}
-         ($ "div" {:ref l-ref :width (:size lwidth)}
+         ($ "div" {:ref l-div :width lf-width :id "lf-div"}
             left)
-         ($ "div" {:ref r-ref :width (:size rwidth)}
+         ($ "div" {:ref r-div :width rt-width :id "rt-div"}
             right)))))

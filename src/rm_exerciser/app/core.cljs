@@ -1,14 +1,13 @@
 (ns rm-exerciser.app.core
   (:require
-   [goog.object :as gobj]
    [clojure.string :as str]
    [rm-exerciser.app.rm-mode.parser :as parser]
    [rm-exerciser.app.rm-mode.state :as state]
    [rad-mapper.evaluate :as ev]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
    ["@codemirror/commands" :refer [history #_historyKeymap emacsStyleKeymap]]
+   ["@codemirror/view" :as view :refer [EditorView #_lineNumbers]]
    ["@codemirror/state" :refer [EditorState]]
-   ["@codemirror/view" :as view :refer [EditorView ViewPlugin ViewUpdate MeasureRequest #_lineNumbers]]
    [applied-science.js-interop :as j]
    ;["@mui/material/colors" :as colors]
    ["@mui/material/CssBaseline" :as CssBaseline]
@@ -22,7 +21,6 @@
    [helix.hooks :as hooks]
    [helix.dom :as d]
    ["react-dom/client" :as react-dom]
-   [shadow.cljs.modern :refer (defclass)]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def diag (atom {}))
@@ -42,44 +40,36 @@
                         #_#_:text {:primary "#173A5E"
                                    :secondary "#46505A"}
                         :MuiDivider
-                        {:variants [{:props {:variant "active-vert" } ; vertical divider of horizontal layout
+                        {:variants [{:props {:variant "activeVert" } ; vertical divider of horizontal layout
                                      :style {:cursor "ew-resize"
                                              :color "black"
                                              :width 5}}
-                                    {:props {:variant "active-horiz" } ; vertical divider of horizontal layout
+                                    {:props {:variant "activeHoriz" } ; horizontal divider of vertical layout
                                      :style {:cursor "ns-resize"
                                              :color "black"
-                                             :height 5}}]}
+                                             :height 4}}]}
                         :MuiTextField
-                        {:variants [{:props {:variant "data-editor"}
-                                     #_#_:style {:multiline true
-                                                 :width 200}}]}}})))
+                        {:variants [{:props {:variant "dataEditor"}
+                                     :style {:multiline true}}]}}})))
 
-;;; https://codemirror.net/examples/styling/
-;;; https://github.com/FarhadG/code-mirror-themes/tree/master/themes
 (def editor-theme
   (.theme EditorView
-          (j/lit {".cm-editor" {:resize   "both"         ; Supposedly these allow it to be resized (when used with requestMeasure).
-                                :height   "auto"         ; https://discuss.codemirror.net/t/editor-variable-height/3523
-                                :overflow "hidden"}
-                  ".cm-content" {:white-space "pre-wrap"
-                                 :padding "5px 0"        ; Allows wrapping
-                                 :height "auto"
-                                 :flex "1 1 0"}
-                  ".cm-wrap"     {:border "1px solid silver"}
-                  ".cm-comment" {:color "#9933CC"}
+          (j/lit {".cm-editor"   {:resize   "both"         ; Supposedly these allow it to be resized (when used with requestMeasure).
+                                  :height   "auto"         ; https://discuss.codemirror.net/t/editor-variable-height/3523
+                                  :width    "auto"}        ; overflow "hidden" does nothing. (Was discussed on 3523.)
+                  ".cm-comment"  {:color "#9933CC"}
                   "&.cm-focused" {:outline "0 !important"}
-                  ".cm-line" {:padding "0 9px"
-                              :line-height "1.1"
-                              :font-size "11px"
-                              :font-family "'JetBrains Mono', monospace"}
+                  ".cm-line"     {:padding "0 9px"
+                                  :line-height "1.1"
+                                  :font-size "11px"
+                                  :font-family "'JetBrains Mono', monospace"}
                   ".cm-matchingBracket" {:border-bottom "1px solid var(--teal-color)"
                                          :color "inherit"}
-                  ".cm-gutters" {:background "lightgray" ;"transparent"
-                                 :border "none"}
-                  ".cm-gutter, .cm-content" {:overflow "auto"}  ; scroll bars appear as needed.
-                  ".cm-gutterElement" {:margin-left "5px"}
-                  ".cm-cursor" {:visibility "hidden"} ; only show cursor when focused
+                  ".cm-gutters"         {:background "lightgray" ;"transparent"
+                                         :overflow "auto" ; scroll bars appear as needed.
+                                         :border "none"}
+                  ".cm-gutterElement"   {:margin-left "5px"}
+                  ".cm-cursor"          {:visibility "hidden"} ; only show cursor when focused
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
 (def init-data
@@ -110,7 +100,6 @@
 ;;; ToDo: Find a more react idiomatic way to do these.
 (def new-height "For communication between resize-editor and measure-write" (atom nil))
 (def data-editor-atm "Set to an EditorView object" (atom nil))
-#_(def code-editor-atm "Set to an EditorView object" (atom nil))
 (defonce extensions #js[editor-theme
                         ;;soft-wrap
                         ;;(lineNumbers) works, but ugly.
@@ -135,7 +124,7 @@
 ;;;    cm.state.selection.main.head   (get cursor)
 ;;;    cm.state.sliceDoc(cm.state.selection.main.from, cm.state.selection.main.to)
 ;;;    cm.state.selection.ranges.map(r => cm.state.sliceDoc(r.from, r.to))
-(defn get-user-data
+(defn get-user-data ;<===================================================================== Fix this soon and clean up here! (use a ref)
   "Return the string content of the data editor."
   []
   ;; https://stackoverflow.com/questions/10285301/how-to-get-the-value-of-codemirror-textarea
@@ -182,12 +171,21 @@
   ;; See https://mui.com/material-ui/react-text-field/  useFormControl
   ;; Also exerciser/src/rm_exerciser/app/core.cljs
   ;; Especially,    :InputProps  {:end-adornment (r/as-element [input-adornment {:position "end"} "Baz"])}}]
-  ($ TextField {:sx {:color "text.secondary"}
+  ($ TextField {:id "result-field"
+                #_#_:variant "standard" #_"dataEditor"
+                #_#_:style {:width "100px" :height "100px"}
                 :multiline true
                 :minRows 4
                 :fullWidth true
                 :placeholder "Ctrl-Enter above to execute."
                 :value result}))
+
+#_(defnc ResultTextField
+  [{:keys [result value] :or {value (or result "Ctrl-Enter above to execute.")}}]
+  ($ "textarea" {:style {:width 200 :height 200}
+                 :cols 80
+                 :row  10
+                 :value value}))
 
 (defn resize-editor
   "Set dimension of the EditorView for share."
@@ -199,41 +197,43 @@
     (when height (j/assoc-in! dom [:style :height] (str height "px")))))
 
 (defnc Editor
-  [{:keys [editor-state init-height atm name]}]
+  [{:keys [editor-state atm name]}]
   (let [ed-ref (hooks/use-ref nil)
         view-dom (atom nil)]
     (hooks/use-effect []
        (when-let [parent (j/get ed-ref :current)]
          (let [view (new EditorView (j/obj :state editor-state :parent parent))]
-           (j/assoc-in! view [:dom :style :height] (str init-height "px"))
            (reset! view-dom (j/get view :dom))
            (when atm (reset! atm view))
            (j/assoc-in! ed-ref [:current :view] view)))) ; Nice!
-    (d/div {:ref ed-ref :id name :width "100%"} @view-dom))) ; :width not helping!
+    (d/div {:ref ed-ref :id name} @view-dom))) ; :id for debugging.
 
 ;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
 (def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
 
-(defnc Top []
-  (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
+(defnc Top [{:keys [top-width top-height]}]
+  (let [#_#_data-fwd-ref        (hooks/use-ref nil) ; <========== Make it a r/forwardRef ***OR**** method on editor!!!
+        [result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
         code-editor-state   (state/make-state
                              (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
                              (if @initialized? "" init-code))
         data-editor-state   (state/make-state
                              #js [extensions]
-                             (if @initialized? (get-user-data) init-data))]
+                             (if @initialized? (get-user-data) init-data))] ; <==== Needs a forward ref, I think.
     (reset! initialized? true)
     ($ Stack {:direction "column" :spacing 0}
        ($ Typography
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
           "RADmapper")
        ($ ShareLeftRight
-          {:left  ($ Editor  {:editor-state data-editor-state :name "data-editor" #_#_:atm data-editor-atm})
+          {:left  ($ Editor  {:editor-state data-editor-state :name "data-editor" :atm data-editor-atm} #_data-fwd-ref)
            :right ($ ShareUpDown
-                     {:init-height 600 ; ToDo: Fix this (and next)
-                      :up ($ Editor {:editor-state code-editor-state :name "code-editor" #_#_:atm code-editor-atm :init-height 130})
+                     {:init-height 400 ; ToDo: Fix this (and next)
+                      :up ($ Editor {:editor-state code-editor-state :name "code-editor"})
                       :on-resize-up resize-editor
-                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})}))))
+                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
+           :lf-pct 0.60
+           :init-width top-width}))))
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
@@ -242,7 +242,7 @@
    ;;(CssBaseline) ; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
    ($ styles/ThemeProvider
       {:theme exerciser-theme}
-      ($ Top))))
+      ($ Top {:top-width (- (j/get js/window :innerWidth) 10)}))))
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 
