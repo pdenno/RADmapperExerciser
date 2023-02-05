@@ -12,10 +12,15 @@
    ;["@mui/material/colors" :as colors]
    ["@mui/material/CssBaseline" :as CssBaseline]
    ;;["@mui/material/InputAdornment$default" :as InputAdornment]
+   ["@mui/material/FormControl$default" :as FormControl]
+   ["@mui/material/InputLabel$default" :as InputLabel]
+   ["@mui/material/MenuItem$default" :as MenuItem]
+   ["@mui/material/Select$default" :as Select]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
    ["@mui/material/TextField$default" :as TextField]
+   [rm-exerciser.app.examples :as examples :refer [rm-examples get-example]]
    [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight resize-default]]
    [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
@@ -130,7 +135,9 @@
   ;; https://stackoverflow.com/questions/10285301/how-to-get-the-value-of-codemirror-textarea
   ;; See also the very helpful https://codemirror.net/docs/migration/ (section "Getting the Document and Selection)
   (log/info "======== get-user-data: atom =" @data-editor-atm)
-  (.toString (j/get-in @data-editor-atm [:state :doc])))
+  (if-let [s (j/get-in @data-editor-atm [:state :doc])]
+    (.toString s)
+    ""))
 
 (defn run-code
   "ev/processRM the source, returning a string that is either the result of processing
@@ -197,8 +204,9 @@
     (when height (j/assoc-in! dom [:style :height] (str height "px")))))
 
 (defnc Editor
-  [{:keys [editor-state atm name]}]
+  [{:keys [text ext-adds atm name] :or {ext-adds #js []}}]
   (let [ed-ref (hooks/use-ref nil)
+        editor-state (state/make-state (-> #js [extensions] (.concat ext-adds)) text)
         view-dom (atom nil)]
     (hooks/use-effect []
        (when-let [parent (j/get ed-ref :current)]
@@ -208,30 +216,65 @@
            (j/assoc-in! ed-ref [:current :view] view)))) ; Nice!
     (d/div {:ref ed-ref :id name} @view-dom))) ; :id for debugging.
 
-;;; ToDo: Find a more react-idiomatic approach than the two atoms initialized? and data-editor-atm. (hooks/use-ref maybe?)
-(def initialized? "Use to suppress adding init-{data/code} to editors" (atom false))
+;;;  I think I want transactions against the state of each editor in the onChange
+;;;  (-> js/document (.getElementById "code-editor") (j/get-in [:view :state]))
+;;; let state = EditorState.create({doc: "hello world"})
+;;; let transaction = state.update({changes: {from: 6, to: 11, insert: "editor"}})
+;;; console.log(transaction.state.doc.toString()) // "hello editor"
+;;; 'changes' is a ChangeSpec:
+;;; type ChangeSpec = {from: number, to⁠?: number, insert⁠?: string | Text} |
+;;; ChangeSet |
+;;; readonly ChangeSpec[]
+;;;
+;;;    This type is used as argument to EditorState.changes and in the changes field of transaction specs to succinctly
+;;;    describe document changes.
+;;;    It may either be a plain object describing a change (a deletion, insertion, or replacement, depending on which fields are present),
+;;;    a change set, or an array of change specs.
+;;;
+;;; https://discuss.codemirror.net/t/codemirror-6-setting-the-contents-of-the-editor/2473/2
+;;; You could create a transaction like state.update({changes: {from: 0, to: state.doc.length, insert: "foobar"}})
+;;; to replace the entire document.
+(defn update-text-for-example [editor-name text] :nyi)
 
-(defnc Top [{:keys [top-width top-height]}]
-  (let [#_#_data-fwd-ref        (hooks/use-ref nil) ; <========== Make it a r/forwardRef ***OR**** method on editor!!!
-        [result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."}) ; These things don't have to be objects!
-        code-editor-state   (state/make-state
-                             (-> #js [extensions] (.concat #js [(add-result-action {:on-result set-result})]))
-                             (if @initialized? "" init-code))
-        data-editor-state   (state/make-state
-                             #js [extensions]
-                             (if @initialized? (get-user-data) init-data))] ; <==== Needs a forward ref, I think.
-    (reset! initialized? true)
-    ($ Stack {:direction "column" :spacing 0}
+(defnc SelectExample
+  [{:keys [init-example] :or {init-example "2 Databases"}}]
+  (let [[example set-example] (hooks/use-state init-example)]
+    (hooks/use-effect [example]
+      ;; This gets called on initialization, so might be some repetition.
+      (log/info "Changed example to " example ". Do something!"))
+    ($ FormControl {:size "small"}
+       ($ Select {:variant "filled"
+                  :value example
+                  :onChange (fn [_e v]
+                              (let [ex-name (j/get-in v [:props :value])]
+                                (set-example ex-name)
+                                (update-text-for-example "code-editor" (-> ex-name get-example :code))
+                                (update-text-for-example "data-editor" (-> ex-name get-example :data))))}
+          (for [ex rm-examples]
+            ($ MenuItem {:key (:name ex) :value (:name ex)} (:name ex)))))))
+
+;;; ToDo: Find a more react-idiomatic approach than data-editor-atm. (hooks/use-ref maybe?)
+(defnc Top [{:keys [top-width rm-example]}]
+  (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})]
+    ($ Stack {:direction "column" #_#_:spacing 0}
        ($ Typography
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
           "RADmapper")
        ($ ShareLeftRight
-          {:left  ($ Editor  {:editor-state data-editor-state :name "data-editor" :atm data-editor-atm} #_data-fwd-ref)
-           :right ($ ShareUpDown
-                     {:init-height 400 ; ToDo: Fix this (and next)
-                      :up ($ Editor {:editor-state code-editor-state :name "code-editor"})
-                      :on-resize-up resize-editor
-                      :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
+          {:left
+           ($ Stack {:direction "column" :spacing "10px"}
+              ($ SelectExample {:init-example (:name rm-example)})
+              ($ Editor  {:text (:data rm-example)
+                          :name "data-editor"
+                          :atm data-editor-atm}))
+           :right
+           ($ ShareUpDown
+              {:init-height 400 ; ToDo: Fix this (and next)
+               :up ($ Editor {:text (:code rm-example)
+                              :ext-adds #js [(add-result-action {:on-result set-result})]
+                              :name "code-editor"})
+               :on-resize-up resize-editor
+               :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
            :lf-pct 0.60
            :init-width top-width}))))
 
@@ -242,7 +285,8 @@
    ;;(CssBaseline) ; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
    ($ styles/ThemeProvider
       {:theme exerciser-theme}
-      ($ Top {:top-width (- (j/get js/window :innerWidth) 10)}))))
+      ($ Top {:top-width (- (j/get js/window :innerWidth) 10)
+              :rm-example (get rm-examples 0)}))))
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 
