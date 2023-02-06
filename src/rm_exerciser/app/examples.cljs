@@ -17,8 +17,8 @@
 
   $reduce($bSet, $eFn) )"
     :data
-    "   $DBa := [{'email' : 'bob@example.com', 'aAttr' : 'Bob-A-data',   'name' : 'Bob'},
-            {'email' : 'alice@alice.org', 'aAttr' : 'Alice-A-data', 'name' : 'Alice'}];
+    "  $DBa := [{'email' : 'bob@example.com', 'aAttr' : 'Bob-A-data',   'name' : 'Bob'},
+         {'email' : 'alice@alice.org', 'aAttr' : 'Alice-A-data', 'name' : 'Alice'}];
 
    $DBb := [{'id' : 'bob@example.com', 'bAttr' : 'Bob-B-data'},
             {'id' : 'alice@alice.org', 'bAttr' : 'Alice-B-data'}];"}

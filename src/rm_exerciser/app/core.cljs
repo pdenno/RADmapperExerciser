@@ -13,7 +13,6 @@
    ["@mui/material/CssBaseline" :as CssBaseline]
    ;;["@mui/material/InputAdornment$default" :as InputAdornment]
    ["@mui/material/FormControl$default" :as FormControl]
-   ["@mui/material/InputLabel$default" :as InputLabel]
    ["@mui/material/MenuItem$default" :as MenuItem]
    ["@mui/material/Select$default" :as Select]
    ["@mui/material/Stack$default" :as Stack]
@@ -77,65 +76,20 @@
                   ".cm-cursor"          {:visibility "hidden"} ; only show cursor when focused
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
-(def init-data
-"   $DBa := [{'email' : 'bob@example.com', 'aAttr' : 'Bob-A-data',   'name' : 'Bob'},
-            {'email' : 'alice@alice.org', 'aAttr' : 'Alice-A-data', 'name' : 'Alice'}];
-
-   $DBb := [{'id' : 'bob@example.com', 'bAttr' : 'Bob-B-data'},
-            {'id' : 'alice@alice.org', 'bAttr' : 'Alice-B-data'}];")
-#_(def init-data "***small data***")
-
-(def init-code
-   "( $qFn :=  query(){[$DBa ?e1 :email ?id]
-                   [$DBb ?e2 :id    ?id]
-                   [$DBa ?e1 :name  ?name]
-                   [$DBa ?e1 :aAttr ?aData]
-                   [$DBb ?e2 :bAttr ?bData]};
-
-   $bSet := $qFn($DBa, $DBb);
-
-   $eFn := express(){{?id : {'name'  : ?name,
-                             'aData' : ?aData,
-                             'bData' : ?bData}}};
-
-   $reduce($bSet, $eFn) )")
-
-;;;(def init-code "***small code****")
-
-;;; ToDo: Find a more react idiomatic way to do these.
-(def new-height "For communication between resize-editor and measure-write" (atom nil))
-(def data-editor-atm "Set to an EditorView object" (atom nil))
 (defonce extensions #js[editor-theme
-                        ;;soft-wrap
-                        ;;(lineNumbers) works, but ugly.
-                        ;;(.. EditorState editorHeight (of 300)) ; WIP I'm guessing.
                         (history) ; This means you can undo things!
                         (syntaxHighlighting defaultHighlightStyle)
                         (view/drawSelection)
                         (foldGutter)
                         (.. EditorState -allowMultipleSelections (of true))
-                        parser/default-extensions ; related to fold gutter, at least
+                        ;;parser/default-extensions ; Related to fold gutter, at least. Causes 2023-02-06 "Comma bug"!
                         (.of view/keymap parser/complete-keymap)
                         (.of view/keymap emacsStyleKeymap #_historyKeymap)])
 
-;;; Problem: This is using the atom data-editor-atm, which isn't reliable for some reason.
-;;; The following is from https://codemirror.net/docs/migration/
-;;; Similar task to that below:
-;;;  Doc operations
-;;;    cm.state.sliceDoc(a, b)
-;;;    cm.state.doc.line(n + 1).text
-;;;    cm.state.doc.lines         (This one is line count.)
-;;; Selection operations
-;;;    cm.state.selection.main.head   (get cursor)
-;;;    cm.state.sliceDoc(cm.state.selection.main.from, cm.state.selection.main.to)
-;;;    cm.state.selection.ranges.map(r => cm.state.sliceDoc(r.from, r.to))
-(defn get-user-data ;<===================================================================== Fix this soon and clean up here! (use a ref)
+(defn get-user-data
   "Return the string content of the data editor."
   []
-  ;; https://stackoverflow.com/questions/10285301/how-to-get-the-value-of-codemirror-textarea
-  ;; See also the very helpful https://codemirror.net/docs/migration/ (section "Getting the Document and Selection)
-  (log/info "======== get-user-data: atom =" @data-editor-atm)
-  (if-let [s (j/get-in @data-editor-atm [:state :doc])]
+  (if-let [s (-> js/document (.getElementById "data-editor") (j/get-in [:view :state :doc]))]
     (.toString s)
     ""))
 
@@ -173,27 +127,6 @@
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
-(defnc ResultTextField
-  [{:keys [result]}]
-  ;; See https://mui.com/material-ui/react-text-field/  useFormControl
-  ;; Also exerciser/src/rm_exerciser/app/core.cljs
-  ;; Especially,    :InputProps  {:end-adornment (r/as-element [input-adornment {:position "end"} "Baz"])}}]
-  ($ TextField {:id "result-field"
-                #_#_:variant "standard" #_"dataEditor"
-                #_#_:style {:width "100px" :height "100px"}
-                :multiline true
-                :minRows 4
-                :fullWidth true
-                :placeholder "Ctrl-Enter above to execute."
-                :value result}))
-
-#_(defnc ResultTextField
-  [{:keys [result value] :or {value (or result "Ctrl-Enter above to execute.")}}]
-  ($ "textarea" {:style {:width 200 :height 200}
-                 :cols 80
-                 :row  10
-                 :value value}))
-
 (defn resize-editor
   "Set dimension of the EditorView for share."
   [parent width height]
@@ -204,58 +137,43 @@
     (when height (j/assoc-in! dom [:style :height] (str height "px")))))
 
 (defnc Editor
-  [{:keys [text ext-adds atm name] :or {ext-adds #js []}}]
+  [{:keys [text ext-adds atm name] :or {ext-adds #js []}}] ; atm for debugging.
   (let [ed-ref (hooks/use-ref nil)
-        editor-state (state/make-state (-> #js [extensions] (.concat ext-adds)) text)
+        txt (if (string? text) text (or (:success text) (:failure text) ""))
+        editor-state (state/make-state (-> #js [extensions] (.concat ext-adds)) txt)
         view-dom (atom nil)]
     (hooks/use-effect []
        (when-let [parent (j/get ed-ref :current)]
          (let [view (new EditorView (j/obj :state editor-state :parent parent))]
            (reset! view-dom (j/get view :dom))
            (when atm (reset! atm view))
-           (j/assoc-in! ed-ref [:current :view] view)))) ; Nice!
-    (d/div {:ref ed-ref :id name} @view-dom))) ; :id for debugging.
+           (j/assoc-in! ed-ref [:current :view] view)))) ; Nice! ToDo: But is it a legit approach?
+    (d/div {:ref ed-ref :id name} @view-dom))) ; id used for retrieval.
 
-;;;  I think I want transactions against the state of each editor in the onChange
-;;;  (-> js/document (.getElementById "code-editor") (j/get-in [:view :state]))
-;;; let state = EditorState.create({doc: "hello world"})
-;;; let transaction = state.update({changes: {from: 6, to: 11, insert: "editor"}})
-;;; console.log(transaction.state.doc.toString()) // "hello editor"
-;;; 'changes' is a ChangeSpec:
-;;; type ChangeSpec = {from: number, to⁠?: number, insert⁠?: string | Text} |
-;;; ChangeSet |
-;;; readonly ChangeSpec[]
-;;;
-;;;    This type is used as argument to EditorState.changes and in the changes field of transaction specs to succinctly
-;;;    describe document changes.
-;;;    It may either be a plain object describing a change (a deletion, insertion, or replacement, depending on which fields are present),
-;;;    a change set, or an array of change specs.
-;;;
-;;; https://discuss.codemirror.net/t/codemirror-6-setting-the-contents-of-the-editor/2473/2
-;;; You could create a transaction like state.update({changes: {from: 0, to: state.doc.length, insert: "foobar"}})
-;;; to replace the entire document.
-(defn update-text-for-example [editor-name text] :nyi)
+(defn set-editor-text [editor-name text]
+  (let [^EditorView  view  (-> js/document (.getElementById editor-name) (j/get :view))
+        ^EditorState state (j/get view :state)
+        ^ChangeSpec  change (j/lit {:from 0 :to (j/get-in state [:doc :length]) :insert text})]
+    (.dispatch view (j/lit {:changes change}))))
 
 (defnc SelectExample
-  [{:keys [init-example] :or {init-example "2 Databases"}}]
+  [{:keys [init-example]}]
   (let [[example set-example] (hooks/use-state init-example)]
-    (hooks/use-effect [example]
-      ;; This gets called on initialization, so might be some repetition.
-      (log/info "Changed example to " example ". Do something!"))
     ($ FormControl {:size "small"}
        ($ Select {:variant "filled"
                   :value example
                   :onChange (fn [_e v]
-                              (let [ex-name (j/get-in v [:props :value])]
+                              (let [ex-name (j/get-in v [:props :value])
+                                    example (get-example ex-name)]
                                 (set-example ex-name)
-                                (update-text-for-example "code-editor" (-> ex-name get-example :code))
-                                (update-text-for-example "data-editor" (-> ex-name get-example :data))))}
+                                (set-editor-text "code-editor" (:code example))
+                                (set-editor-text "data-editor" (:data example))))}
           (for [ex rm-examples]
             ($ MenuItem {:key (:name ex) :value (:name ex)} (:name ex)))))))
 
-;;; ToDo: Find a more react-idiomatic approach than data-editor-atm. (hooks/use-ref maybe?)
 (defnc Top [{:keys [top-width rm-example]}]
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})]
+    (hooks/use-effect [result] (set-editor-text "result" (or (:success result) (:failure result) "failure!")))
     ($ Stack {:direction "column" #_#_:spacing 0}
        ($ Typography
           {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
@@ -264,17 +182,15 @@
           {:left
            ($ Stack {:direction "column" :spacing "10px"}
               ($ SelectExample {:init-example (:name rm-example)})
-              ($ Editor  {:text (:data rm-example)
-                          :name "data-editor"
-                          :atm data-editor-atm}))
+              ($ Editor  {:text (:data rm-example) :name "data-editor"}))
            :right
            ($ ShareUpDown
-              {:init-height 400 ; ToDo: Fix this (and next)
+              {:init-height 400 ; ToDo: Fix this.
                :up ($ Editor {:text (:code rm-example)
                               :ext-adds #js [(add-result-action {:on-result set-result})]
                               :name "code-editor"})
                :on-resize-up resize-editor
-               :dn ($ ResultTextField {:result (if-let [success (:success result)] success (:failure result))})})
+               :dn ($ Editor {:name "result" :text result})})
            :lf-pct 0.60
            :init-width top-width}))))
 
