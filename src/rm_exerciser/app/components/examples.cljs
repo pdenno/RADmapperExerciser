@@ -1,4 +1,9 @@
-(ns rm-exerciser.app.examples)
+(ns rm-exerciser.app.components.examples)
+
+(declare rm-examples)
+
+(defn get-example [name]
+  (some #(when (= name (:name %)) %) rm-examples))
 
 (def rm-examples
   [{:name "2 Databases"
@@ -38,6 +43,3 @@
   // Get back binding sets.
   [$aRes, $bRes] )"
     :data ""}])
-
-(defn get-example [name]
-  (some #(when (= name (:name %)) %) rm-examples))
