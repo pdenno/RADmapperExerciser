@@ -3,11 +3,12 @@
    [clojure.string :as str]
    [rad-mapper.evaluate :as ev]
    [applied-science.js-interop :as j]
-   ["@mui/material/CssBaseline" :as CssBaseline]
+   ["@codemirror/view" :as view]
+   ["@mui/material/colors" :as colors]
+   ["@mui/material/CssBaseline$default" :as CssBaseline] ; It is a component.
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
-   ["@codemirror/view" :as view]
    [rm-exerciser.app.components.editor :as editor :refer [Editor resize-editor set-editor-text SelectExample]]
    [rm-exerciser.app.components.examples :as examples :refer [rm-examples]]
    [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight]]
@@ -18,29 +19,27 @@
 
 (def diag (atom {}))
 
-;;; ToDo: Get rid of shape.borderRadius. See https://mui.com/material-ui/customization/default-theme/?expand-path=$.typography
 (def exerciser-theme
   (styles/createTheme
-   (j/lit {:palette {:background {:paper "#fff"}
-                     #_#_:primary   colors/yellow
-                     #_#_:secondary colors/green}
+   (j/lit {#_#_:palette {:background {:paper "#F0F0F0"}
+                     :primary   colors/yellow
+                     :secondary colors/green}
            :typography {:subtitle1 {:fontSize 5}}
 
            #_#_:text {:primary "#173A5E"
                   :secondary "#46505A"}
 
-           :components {#_#_:MuiCssBaseline {:blah "blah"}
-                        #_#_:text {:primary "#173A5E"
-                                   :secondary "#46505A"}
+           :components {:MuiCssBaseline {:text {:primary "#173A5E"
+                                                :secondary "#46505A"}}
                         :MuiDivider
-                        {:variants [{:props {:variant "activeVert" } ; vertical divider of horizontal layout
+                        {:variants [{:props {:variant "activeVert"}  ; vertical divider of horizontal layout
                                      :style {:cursor "ew-resize"
-                                             :color "black"
-                                             :width 5}}
-                                    {:props {:variant "activeHoriz" } ; horizontal divider of vertical layout
+                                             :color "black" ; Invisible on firefox.
+                                             :width 4}}
+                                    {:props {:variant "activeHoriz"} ; horizontal divider of vertical layout
                                      :style {:cursor "ns-resize"
-                                             :color "black"
-                                             :height 4}}]}
+                                             :color "black"  ; Invisible on firefox.
+                                             :height 3}}]} ; For some reason looks better with 3, not 4.
                         :MuiTextField
                         {:variants [{:props {:variant "dataEditor"}
                                      :style {:multiline true}}]}}})))
@@ -87,12 +86,20 @@
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
-(defnc Top [{:keys [top-width rm-example]}]
-  (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})]
+(defnc Top [{:keys [rm-example]}]
+  (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
+        top-width (j/get js/window :innerWidth)
+        banner-height 42
+        useful-height (- (j/get js/window :innerHeight) banner-height)]
     (hooks/use-effect [result] (set-editor-text "result" (or (:success result) (:failure result) "failure!")))
-    ($ Stack {:direction "column" #_#_:spacing 0}
+    ($ Stack {:direction "column" #_#_:spacing 0 :height useful-height}
        ($ Typography
-          {:variant "h4" :color "white" :backgroundColor "primary.main" :padding "2px 0 2px 30px" :noWrap false}
+          {:variant "h4"
+           :color "white"
+           :backgroundColor "primary.main"
+           :padding "2px 0 2px 20px"
+           :noWrap false
+           :height banner-height}
           "RADmapper")
        ($ ShareLeftRight
           {:left
@@ -101,7 +108,7 @@
               ($ Editor  {:text (:data rm-example) :name "data-editor"}))
            :right
            ($ ShareUpDown
-              {:init-height 400 ; ToDo: Fix this.
+              {:init-height (- useful-height 20) ; ToDo: Not sure why the 20 is needed.
                :up ($ Editor {:text (:code rm-example)
                               :ext-adds #js [(add-result-action {:on-result set-result})]
                               :name "code-editor"})
@@ -114,11 +121,12 @@
   {:helix/features {:check-invalid-hooks-usage true}}
   (<> ; https://reactjs.org/docs/react-api.html#reactfragment
    ;; https://mui.com/material-ui/react-css-baseline/
-   ;;(CssBaseline) ; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
+   ;; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
+   ;; Use of CssBaseline removes padding/margin around application, if nothing else.
+   (CssBaseline {:children #js []}) ; https://v4.mui.com/components/css-baseline/
    ($ styles/ThemeProvider
       {:theme exerciser-theme}
-      ($ Top {:top-width (- (j/get js/window :innerWidth) 10)
-              :rm-example (get rm-examples 0)}))))
+      ($ Top {:rm-example (get rm-examples 0)}))))
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 

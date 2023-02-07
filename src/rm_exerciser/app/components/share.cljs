@@ -128,7 +128,10 @@
          {:direction "row" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
           :divider ($ Divider {:variant "activeVert" :color "black"
                                :onMouseDown start-drag :onMouseMove do-drag :onMouseUp stop-drag})}
-         ($ "div" {:ref l-div :width lf-width :id "lf-div"}
+         ($ "div" {:ref l-div
+                   :width lf-width
+                   :id "lf-div"
+                   :style {:border-style "none none solid solid"}}
             left)
-         ($ "div" {:ref r-div :width rt-width :id "rt-div"}
+         ($ "div" {:ref r-div :width rt-width :id "rt-div" :style {:border-style "none solid solid none"}}
             right)))))
