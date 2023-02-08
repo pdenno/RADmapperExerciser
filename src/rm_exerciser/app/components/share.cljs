@@ -5,6 +5,7 @@
    [applied-science.js-interop :as j]
    [helix.core :refer [defnc $]]
    [helix.hooks :as hooks]
+   [rm-exerciser.app.util :as util]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 ;;; ToDo:
@@ -17,7 +18,7 @@
 (def diag (atom nil))
 (def mouse-down? "Should not be necessary, but it appears it is." (atom false))
 
-(defn resize-default
+(defn resize
   "Set dimension of parent the EditorView."
   [parent width height]
   ;(log/info "resize default: parent = " (j/get parent :id) "height = " height)
@@ -28,8 +29,8 @@
   "Create a Stack with two children (props :up and :down) where the
    area shared between the two can be distributed by dragging the Stack divider,
    a black bar that could be viewed as the frame dividing the two."
-  [{:keys [up dn init-height on-resize-up on-resize-dn]
-    :or {on-resize-up resize-default on-resize-dn resize-default init-height 300}}]
+  [{:keys [up dn init-height on-resize-up on-resize-dn on-stop-drag]
+    :or {on-resize-up resize on-resize-dn resize init-height 300}}]
   {:helix/features {:check-invalid-hooks-usage true}}
   (let [[up-height set-up-height]     (hooks/use-state (int (/ init-height 2)))
         [dn-height set-dn-height]     (hooks/use-state (int (/ init-height 2)))
@@ -58,16 +59,25 @@
               (js/document.addEventListener "mousemove" do-drag))
             (stop-drag []
               (reset! mouse-down? false)
+              (when-let [udiv (j/get u-div :current)]
+                (when-let [ddiv (j/get d-div :current)]
+                  (when on-stop-drag
+                    (on-stop-drag udiv up-height)
+                    (on-stop-drag ddiv dn-height))))
               (js/document.removeEventListener "mouseup"   stop-drag)
               (js/document.removeEventListener "mousemove" do-drag))]
-      (hooks/use-effect []
+      (hooks/use-effect [] ; set-parent-dims
         (when-let [udiv (j/get u-div :current)]
           (when-let [ddiv (j/get d-div :current)]
             (let [ubound (j/get (.getBoundingClientRect udiv) :top)
-                  dbound (+ ubound init-height)]
+                  dbound (+ ubound init-height)
+                  height (int (- (/ init-height 2) 2))]
+              (when on-stop-drag
+                (on-stop-drag udiv height)
+                (on-stop-drag ddiv height))
               (set-parent-dims {:height init-height :ubound ubound :dbound dbound})
-              (on-resize-up udiv nil (int (- (/ init-height 2) 2)))
-              (on-resize-dn ddiv nil (int (- (/ init-height 2) 2)))
+              (on-resize-up udiv nil height)
+              (on-resize-dn ddiv nil height)
               #_(log/info "use-effect setting border in middle: " (+ ubound (/ init-height 2)))))))
       ($ Stack
          {:direction "column" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
@@ -82,8 +92,8 @@
   "Create a Stack with two children (props :up and :down) where the
    area shared between the two can be distributed by dragging the Stack divider,
    a black bar that could be viewed as the frame dividing the two."
-  [{:keys [left right init-width on-resize-left on-resize-right lf-pct]
-    :or {on-resize-left resize-default on-resize-right resize-default init-width 800 lf-pct 0.50}}]
+  [{:keys [left right init-width on-resize-left on-resize-right lf-pct on-stop-drag]
+    :or {on-resize-left resize on-resize-right resize init-width 800 lf-pct 0.50}}]
   {:helix/features {:check-invalid-hooks-usage true}}
   (let [[lf-width set-lf-width]       (hooks/use-state (int (*      lf-pct  (/ init-width 2))))
         [rt-width set-rt-width]       (hooks/use-state (int (* (- 1 lf-pct) (/ init-width 2))))
@@ -119,7 +129,11 @@
                   lbound (j/get (.getBoundingClientRect parent) :left)
                   rbound (+ lbound init-width)
                   left-init  (int (*      lf-pct   (- init-width 2.5)))   ; minus 2.5 is border, roughly.
-                  right-init (int (* (- 1 lf-pct)  (- init-width 2.5)))]
+                  right-init (int (* (- 1 lf-pct)  (- init-width 2.5)))
+                  height (j/get ldiv :clientHeight)]
+              (when on-stop-drag
+                (on-stop-drag ldiv height)
+                (on-stop-drag rdiv height))
               (set-parent-dims {:width init-width :lbound lbound :rbound rbound})
               (on-resize-left  ldiv left-init nil)
               (on-resize-right rdiv right-init nil)

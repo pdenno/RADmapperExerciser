@@ -9,11 +9,13 @@
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
-   [rm-exerciser.app.components.editor :as editor :refer [Editor resize-editor set-editor-text SelectExample]]
+   [rm-exerciser.app.components.editor :as editor :refer [Editor set-editor-text SelectExample]]
    [rm-exerciser.app.components.examples :as examples :refer [rm-examples]]
    [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight]]
+   [rm-exerciser.app.util :as util]
    [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
+   ["react" :as react]
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
@@ -86,12 +88,33 @@
         [{:key "Mod-Enter"
           :run (partial eval-cell on-result)}])))
 
+(defn get-props [obj]
+  (when (map? (js->clj obj))
+    (js->clj (or (j/get obj :props) (get obj "props")))))
+
+(defn search-props
+  "Return the object that has a prop that passes the test."
+  [obj test]
+  (let [found? (atom nil)
+        cnt (atom 0)]
+    (letfn [(sp [obj]
+              (swap! cnt inc)
+              (cond @found?                 @found?,
+                    (> @cnt 500)            nil,    ; ToDo: Remove this.
+                    (test obj)              (reset! found? obj),
+                    (get-props obj)         (doseq [p (-> obj get-props vals)]
+                                              (sp p)),
+                    (vector? (js->clj obj)) (doseq [p (js->clj obj)] (sp p))))]
+      (sp obj)
+      @found?)))
+
 (defnc Top [{:keys [rm-example]}]
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
         top-width (j/get js/window :innerWidth)
         banner-height 42
         useful-height (- (j/get js/window :innerHeight) banner-height)]
     (hooks/use-effect [result] (set-editor-text "result" (or (:success result) (:failure result) "failure!")))
+    (reset! util/root
     ($ Stack {:direction "column" #_#_:spacing 0 :height useful-height}
        ($ Typography
           {:variant "h4"
@@ -105,17 +128,21 @@
           {:left
            ($ Stack {:direction "column" :spacing "10px"}
               ($ SelectExample {:init-example (:name rm-example)})
-              ($ Editor  {:text (:data rm-example) :name "data-editor"}))
+              ($ Editor {:text (:data rm-example) :name "data-editor"}))
            :right
            ($ ShareUpDown
               {:init-height (- useful-height 20) ; ToDo: Not sure why the 20 is needed.
                :up ($ Editor {:text (:code rm-example)
                               :ext-adds #js [(add-result-action {:on-result set-result})]
                               :name "code-editor"})
-               :on-resize-up resize-editor
-               :dn ($ Editor {:name "result" :text result})})
+               :dn ($ Editor {:name "result" :text result})
+               :on-resize-up editor/resize
+               :on-resize-dn editor/resize
+               :on-stop-drag (partial editor/resize-finish ["code-editor" "result"])})
+           :on-stop-drag (partial editor/resize-finish ["data-editor"]) ; Will have to look for it because it is in Stack
+           :on-resize-left editor/resize
            :lf-pct 0.60
-           :init-width top-width}))))
+           :init-width top-width})))))
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
