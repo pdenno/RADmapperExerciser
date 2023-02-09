@@ -158,16 +158,32 @@
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
-  (<> ; https://reactjs.org/docs/react-api.html#reactfragment
-   ;; https://mui.com/material-ui/react-css-baseline/
-   ;; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
-   ;; Use of CssBaseline removes padding/margin around application, if nothing else.
-   (CssBaseline {:children #js []}) ; https://v4.mui.com/components/css-baseline/
-   ($ styles/ThemeProvider
-      {:theme exerciser-theme}
-      ($ Top {:width (j/get js/window :innerWidth)
-              :height (j/get js/window :innerHeight)
-              :rm-example (get rm-examples 0)}))))
+  (let  [[width  set-width]  (hooks/use-state (j/get js/window :innerWidth))
+         [height set-height] (hooks/use-state (j/get js/window :innerHeight))
+         carry-dims-atm (atom {:width width :height height})]
+    (letfn [(handle-resize [& _args]
+              (let [new-width  (j/get js/window :innerWidth)
+                    new-height (j/get js/window :innerHeight)]
+                (set-width  new-width)
+                (set-height new-height)
+                (reset! carry-dims-atm {:width new-width :height new-height})))]
+      ;; https://www.pluralsight.com/guides/re-render-react-component-on-window-resize
+      ;; React gives us a way to do this [cleanup handler] with useEffect. When passing a function to useEffect,
+      ;; if that function also returns a function, that returned function will be called to perform any needed cleanup.
+      ;; We can put our removeEventListener code there:
+      (hooks/use-effect [width height]
+        (fn [& _] (js/window.removeEventListener "resize" handle-resize)))
+      (js/window.addEventListener "resize" handle-resize)
+      (<> ; https://reactjs.org/docs/react-api.html#reactfragment
+       ;; https://mui.com/material-ui/react-css-baseline/
+       ;; ToDo: See for example https://mui.com/material-ui/customization/typography/ search for MuiCssBaseline
+       ;; Use of CssBaseline removes padding/margin around application, if nothing else.
+       (CssBaseline {:children #js []}) ; https://v4.mui.com/components/css-baseline/
+       ($ styles/ThemeProvider
+          {:theme exerciser-theme}
+          ($ Top {:width  (:width  @carry-dims-atm)
+                  :height (:height @carry-dims-atm)
+                  :rm-example (get rm-examples 0)}))))))
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 
