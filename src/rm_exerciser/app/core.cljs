@@ -50,7 +50,7 @@
 (defn get-user-data
   "Return the string content of the data editor."
   []
-  (if-let [s (-> js/document (.getElementById "data-editor") (j/get-in [:view :state :doc]))]
+  (if-let [s (get-in @util/component-refs ["data-editor" :view :state :doc])]
     (.toString s)
     ""))
 
@@ -108,6 +108,14 @@
       (sp obj)
       @found?)))
 
+(def top-share-fns
+  "These, for convenience, keep track of what methods need be called on resizing."
+  {:left-share   {:on-stop-drag-lf (partial editor/resize-finish "data-editor")}
+   :right-share  {:on-resize-up    (partial editor/resize "code-editor")
+                  :on-resize-dn    (partial editor/resize "result")
+                  :on-stop-drag-up (partial editor/resize-finish "code-editor")
+                  :on-stop-drag-dn (partial editor/resize-finish "result")}})
+
 (defnc Top [{:keys [rm-example]}]
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
         top-width (j/get js/window :innerWidth)
@@ -125,22 +133,17 @@
            :height banner-height}
           "RADmapper")
        ($ ShareLeftRight
-          {:left
-           ($ Stack {:direction "column" :spacing "10px"}
-              ($ SelectExample {:init-example (:name rm-example)})
-              ($ Editor {:text (:data rm-example) :name "data-editor"}))
-           :right
-           ($ ShareUpDown
-              {:init-height (- useful-height 20) ; ToDo: Not sure why the 20 is needed.
-               :up ($ Editor {:text (:code rm-example)
-                              :ext-adds #js [(add-result-action {:on-result set-result})]
-                              :name "code-editor"})
-               :dn ($ Editor {:name "result" :text result})
-               :on-resize-up editor/resize
-               :on-resize-dn editor/resize
-               :on-stop-drag (partial editor/resize-finish ["code-editor" "result"])})
-           :on-stop-drag (partial editor/resize-finish ["data-editor"]) ; Will have to look for it because it is in Stack
-           :on-resize-left editor/resize
+          {:left  ($ Stack {:direction "column" :spacing "10px"}
+                     ($ SelectExample {:init-example (:name rm-example)})
+                     ($ Editor {:text (:data rm-example) :name "data-editor"}))
+           :right ($ ShareUpDown
+                     {:init-height (- useful-height 20) ; ToDo: Not sure why the 20 is needed.
+                      :up ($ Editor {:text (:code rm-example)
+                                     :ext-adds #js [(add-result-action {:on-result set-result})]
+                                     :name "code-editor"})
+                      :dn ($ Editor {:name "result" :text result})
+                      :share-fns (:right-share top-share-fns)})
+           :share-fns (:left-share top-share-fns)
            :lf-pct 0.60
            :init-width top-width})))))
 
