@@ -5,7 +5,7 @@
    [rm-exerciser.app.rm-mode.state :as state]
    ["@codemirror/language" :refer [foldGutter syntaxHighlighting defaultHighlightStyle]]
    ["@codemirror/commands" :refer [history #_historyKeymap emacsStyleKeymap]]
-   ["@codemirror/view" :as view :refer [EditorView ViewPlugin ViewUpdate MeasureRequest #_lineNumbers]]
+   ["@codemirror/view" :as view :refer [EditorView  #_lineNumbers]]
    ["@codemirror/state" :refer [EditorState Compartment ChangeSet Transaction]]
    [applied-science.js-interop :as j]
    ;["@mui/system/sizing" :as sizing] ; ToDo: Investigate
@@ -20,7 +20,7 @@
    [helix.dom :as d]
    ["react" :as react]
    [shadow.cljs.modern :refer (defclass)]
-   [taoensso.timbre :as log :refer-macros [info debug log]]))
+   #_[taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def diag (atom nil))
 
@@ -55,11 +55,10 @@
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
 ;;; By wrapping part of your configuration in a compartment, you can later replace that part through a transaction.
-(defonce style-compartment (new Compartment)) ; was once
+(defonce style-compartment (new Compartment))
 
 (defn extensions
   [height name]
-  (log/info "+++extensions for " name " height = " height)
   #js[(.of style-compartment (editor-theme height))
       (history) ; This means you can undo things!
       (syntaxHighlighting defaultHighlightStyle)
@@ -95,37 +94,28 @@
           (for [ex rm-examples]
             ($ MenuItem {:key (:name ex) :value (:name ex)} (:name ex)))))))
 
-;;; ToDo: Check whether or not this is even needed!
 (defn resize
   "Set dimension of the EditorView for share."
   [editor-name parent width height]
   (share/resize parent width height)
-  #_(when-let [view (get-in @util/component-refs [editor-name :view])]
-    (when-let [dom (j/get view [:dom])]
-      ;;(reset! diag {:view view})
-      ;;(log/info "Editor component is " (-> parent (j/get :children) (.item 0) (j/get :id)))
+  (when-let [view (get-in @util/component-refs [editor-name :view])]
+    (when-let [dom (j/get view :dom)]
       (when width  (j/assoc-in! dom    [:style :width]  (str width  "px")))
       (when height
-        (log/info "resize editor: " editor-name = ": parent = " (j/get-in parent [:constructor :name]) " height = " height " width = " width)
-        ;(.setAttribute dom "style" (str "height:" (int height) "px"))
-        (j/assoc-in! dom [:style :height] (str height "px"))              ; <================ was parent.
-        (j/assoc-in! dom [:style :max-height] (str height "px"))))))      ; <================ Probably not useful. (belongs in transaction)
+        (j/assoc-in! dom [:style :height] (str height "px"))))))
 
 (defn resize-finish
   "In order for scroll bars to appear (and long text not to run past the end of the editor vieport),
    :max-height must be set. This is done with a transaction."
   [editor-name _elem height]
   (when-let [view (get-in @util/component-refs [editor-name :view])]
-    (log/info "**** max-height (resize-finish): names = " editor-name " height = " height)
     (let [^EditorState state  (j/get view :state)
           ^StateEffect effect (.reconfigure #^Compartment style-compartment (editor-theme height))
           ^Transaction trans  (.update state (j/lit {:effects [effect]}))]
       (.dispatch view trans))))
 
-;;; ToDo: For the time being, I'm assuming every editor gets its own copy of the extensions.
-;;;       To check this, get the values
 (defnc Editor
-  [{:keys [text ext-adds name height] :or {ext-adds #js []}}] ; <========== Maybe try passing height in from js/window
+  [{:keys [text ext-adds name height] :or {ext-adds #js []}}]
   (let [ed-ref (hooks/use-ref nil)
         txt (if (string? text) text (or (:success text) (:failure text) ""))
         view-dom (atom nil)]

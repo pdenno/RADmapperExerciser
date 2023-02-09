@@ -6,7 +6,7 @@
    [helix.core :refer [defnc $]]
    [helix.hooks :as hooks]
    [rm-exerciser.app.util :as util]
-   [taoensso.timbre :as log :refer-macros [info debug log]]))
+   #_[taoensso.timbre :as log :refer-macros [info debug log]]))
 
 ;;; ToDo:
 ;;;   (1) The on-resize-x methods should not be necessary. It should be the case that resizing the parent
@@ -21,8 +21,6 @@
 (defn resize
   "Set dimension of parent the EditorView."
   [parent width height]
-  (log/info "resize default : parent = " (j/get-in parent [:constructor :name]) " height = " height " width = " width)
-  ;(log/info "resize default: parent = " (j/get parent :id) "height = " height)
   (when width  (j/assoc-in! parent [:style :width]  (str width  "px")))
   (when height (j/assoc-in! parent [:style :height] (str height "px"))))
 
@@ -52,8 +50,7 @@
                       (set-dn-height dn-size)
                       (reset! height-atm {:up-height up-size :dn-height dn-size})
                       (when on-resize-up (on-resize-up udiv nil up-size)) ; can partial with first arg editor-name
-                      (when on-resize-dn (on-resize-dn ddiv nil dn-size))
-                      #_(log/info "upsize = " up-size " dn-size = " dn-size))))))
+                      (when on-resize-dn (on-resize-dn ddiv nil dn-size)))))))
             (do-drag [e] (when @mouse-down? (-> e (j/get :clientY) set-dims)))
             (start-drag [_e]
               (reset! mouse-down? true)
@@ -68,7 +65,7 @@
                   (on-stop-drag-up udiv (:up-height @height-atm))))
               (when-let [ddiv (j/get d-div :current)]
                 (when on-stop-drag-dn (on-stop-drag-dn ddiv (:dn-height @height-atm)))))]
-      (hooks/use-effect [] ; :once ; set-parent-dims
+      (hooks/use-effect :once ; set-parent-dims
         (when-let [udiv (j/get u-div :current)]
           (when-let [ddiv (j/get d-div :current)]
             (let [ubound (j/get (.getBoundingClientRect udiv) :top)
@@ -76,14 +73,7 @@
                   height (int (- (/ init-height 2) 2))]
               (set-parent-dims {:height init-height :ubound ubound :dbound dbound})
               (when on-resize-up (on-resize-up udiv nil height))
-              (when on-resize-dn (on-resize-dn ddiv nil height))
-              (when on-stop-drag-up
-                (log/info "Setting initial max-height (up)" (:up-height @height-atm))
-                (on-stop-drag-up udiv (:up-height @height-atm))) ; If editor, partial on editor-name
-              (when on-stop-drag-dn
-                (log/info "Setting initial max-height (dn)" (:dn-height @height-atm))
-                (on-stop-drag-dn ddiv (:dn-height @height-atm)))
-              #_(log/info "use-effect setting border in middle: " (+ ubound (/ init-height 2)))))))
+              (when on-resize-dn (on-resize-dn ddiv nil height))))))
       ($ Stack
          {:direction "column" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
           :divider ($ Divider {:variant "activeHoriz" :color "black"
@@ -138,16 +128,11 @@
                   left-init  (int (*      lf-pct   (- init-width 2.5)))   ; minus 2.5 is border, roughly.
                   right-init (int (* (- 1 lf-pct)  (- init-width 2.5)))
                   height (j/get ldiv :clientHeight)]
-              (when on-stop-drag-lf
-                (log/info "Setting initial max-height (lf)" height)
-                (on-stop-drag-lf ldiv height))
-              (when on-stop-drag-rt
-                (log/info "Setting initial max-height (rt)" height) ;  This one shouldn't happen
-                (on-stop-drag-rt rdiv height))
+              (when on-stop-drag-lf (on-stop-drag-lf ldiv height))
+              (when on-stop-drag-rt (on-stop-drag-rt rdiv height))
               (set-parent-dims {:width init-width :lbound lbound :rbound rbound})
-              (when on-resize-lf (on-resize-lf ldiv left-init nil))
-              (when on-resize-rt (on-resize-rt rdiv right-init nil))
-              #_(log/info "use-effect: left-width = " left-init " right-init = " right-init)))))
+              (when on-resize-lf (on-resize-lf ldiv left-init  nil))
+              (when on-resize-rt (on-resize-rt rdiv right-init nil))))))
       ($ Stack
          {:direction "row" :display "flex" :width "100%":height "100%" :alignItems "stretch" :spacing 0
           :divider ($ Divider {:variant "activeVert" :color "black"

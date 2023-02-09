@@ -123,8 +123,7 @@
         code-editor-height (int (/ useful-height 2))
         result-editor-height (int (/ useful-height 2))]
     (hooks/use-effect [result] (set-editor-text "result" (or (:success result) (:failure result) "failure!")))
-    (hooks/use-effect :once
-      (log/info "++++++++++++++++++ This happens now.")
+    (hooks/use-effect :once ; Need to set :max-height of resizable editors after everything is created.
       (editor/resize-finish "code-editor" nil code-editor-height)
       (editor/resize-finish "data-editor" nil data-editor-height)
       (editor/resize-finish "result" nil result-editor-height))
@@ -168,7 +167,7 @@
       {:theme exerciser-theme}
       ($ Top {:width (j/get js/window :innerWidth)
               :height (j/get js/window :innerHeight)
-              :rm-example (get rm-examples 2)}))))
+              :rm-example (get rm-examples 0)}))))
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 
