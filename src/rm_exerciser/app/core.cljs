@@ -46,11 +46,10 @@
                         {:variants [{:props {:variant "dataEditor"}
                                      :style {:multiline true}}]}}})))
 
-
 (defn get-user-data
   "Return the string content of the data editor."
   []
-  (if-let [s (get-in @util/component-refs ["data-editor" :view :state :doc])]
+  (if-let [s (j/get-in (get-in @util/component-refs ["data-editor" :view]) [:state :doc])]
     (.toString s)
     ""))
 
@@ -116,14 +115,20 @@
                   :on-stop-drag-up (partial editor/resize-finish "code-editor")
                   :on-stop-drag-dn (partial editor/resize-finish "result")}})
 
-(defnc Top [{:keys [rm-example]}]
+(defnc Top [{:keys [rm-example width height]}]
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
-        top-width (j/get js/window :innerWidth)
         banner-height 42
-        useful-height (- (j/get js/window :innerHeight) banner-height)]
+        useful-height (- height banner-height)
+        data-editor-height (- useful-height banner-height 20) ; ToDo: 20 (a gap before the editor starts)
+        code-editor-height (int (/ useful-height 2))
+        result-editor-height (int (/ useful-height 2))]
     (hooks/use-effect [result] (set-editor-text "result" (or (:success result) (:failure result) "failure!")))
-    (reset! util/root
-    ($ Stack {:direction "column" #_#_:spacing 0 :height useful-height}
+    (hooks/use-effect :once
+      (log/info "++++++++++++++++++ This happens now.")
+      (editor/resize-finish "code-editor" nil code-editor-height)
+      (editor/resize-finish "data-editor" nil data-editor-height)
+      (editor/resize-finish "result" nil result-editor-height))
+    ($ Stack {:direction "column" :height useful-height}
        ($ Typography
           {:variant "h4"
            :color "white"
@@ -135,17 +140,22 @@
        ($ ShareLeftRight
           {:left  ($ Stack {:direction "column" :spacing "10px"}
                      ($ SelectExample {:init-example (:name rm-example)})
-                     ($ Editor {:text (:data rm-example) :name "data-editor"}))
+                     ($ Editor {:name "data-editor"
+                                :height data-editor-height ; Select example is about height of banner.
+                                :text (:data rm-example) }))
            :right ($ ShareUpDown
                      {:init-height (- useful-height 20) ; ToDo: Not sure why the 20 is needed.
-                      :up ($ Editor {:text (:code rm-example)
-                                     :ext-adds #js [(add-result-action {:on-result set-result})]
-                                     :name "code-editor"})
-                      :dn ($ Editor {:name "result" :text result})
+                      :up ($ Editor {:name "code-editor"
+                                     :height code-editor-height
+                                     :text (:code rm-example)
+                                     :ext-adds #js [(add-result-action {:on-result set-result})]})
+                      :dn ($ Editor {:name "result"
+                                     :height result-editor-height
+                                     :text result})
                       :share-fns (:right-share top-share-fns)})
            :share-fns (:left-share top-share-fns)
            :lf-pct 0.60
-           :init-width top-width})))))
+           :init-width width}))))
 
 (defnc app []
   {:helix/features {:check-invalid-hooks-usage true}}
@@ -156,7 +166,9 @@
    (CssBaseline {:children #js []}) ; https://v4.mui.com/components/css-baseline/
    ($ styles/ThemeProvider
       {:theme exerciser-theme}
-      ($ Top {:rm-example (get rm-examples 0)}))))
+      ($ Top {:width (j/get js/window :innerWidth)
+              :height (j/get js/window :innerHeight)
+              :rm-example (get rm-examples 2)}))))
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 

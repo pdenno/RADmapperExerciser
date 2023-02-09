@@ -55,17 +55,20 @@
                   "&.cm-focused .cm-cursor" {:visibility "visible"}})))
 
 ;;; By wrapping part of your configuration in a compartment, you can later replace that part through a transaction.
-(def style-compartment (new Compartment)) ; was once
+(defonce style-compartment (new Compartment)) ; was once
 
-(defonce extensions #js[(.of style-compartment (editor-theme 222)) ; 300px default.
-                        (history) ; This means you can undo things!
-                        (syntaxHighlighting defaultHighlightStyle)
-                        (view/drawSelection)
-                        (foldGutter)
-                        (.. EditorState -allowMultipleSelections (of true))
-                        ;;parser/default-extensions ; Related to fold gutter, at least. Causes 2023-02-06 "Comma bug"!
-                        (.of view/keymap parser/complete-keymap)
-                        (.of view/keymap emacsStyleKeymap #_historyKeymap)])
+(defn extensions
+  [height name]
+  (log/info "+++extensions for " name " height = " height)
+  #js[(.of style-compartment (editor-theme height))
+      (history) ; This means you can undo things!
+      (syntaxHighlighting defaultHighlightStyle)
+      (view/drawSelection)
+      (foldGutter)
+      (.. EditorState -allowMultipleSelections (of true))
+      ;;parser/default-extensions ; Related to fold gutter, at least. Causes 2023-02-06 "Comma bug"!
+      (.of view/keymap parser/complete-keymap)
+      (.of view/keymap emacsStyleKeymap #_historyKeymap)])
 
 (defn set-editor-text [editor-name text]
   (when-let [^EditorView view (get-in @util/component-refs [editor-name :view])]
@@ -97,9 +100,8 @@
   "Set dimension of the EditorView for share."
   [editor-name parent width height]
   (share/resize parent width height)
-  (log/info "resize editor: view type = " (j/get-in (get-in @util/component-refs [editor-name :view]) [:constructor :name]))
-  (when-let [view (get-in @util/component-refs [editor-name :view])]
-    (let [dom (j/get view [:dom])]
+  #_(when-let [view (get-in @util/component-refs [editor-name :view])]
+    (when-let [dom (j/get view [:dom])]
       ;;(reset! diag {:view view})
       ;;(log/info "Editor component is " (-> parent (j/get :children) (.item 0) (j/get :id)))
       (when width  (j/assoc-in! dom    [:style :width]  (str width  "px")))
@@ -112,9 +114,9 @@
 (defn resize-finish
   "In order for scroll bars to appear (and long text not to run past the end of the editor vieport),
    :max-height must be set. This is done with a transaction."
-  [editor-name elem height]
+  [editor-name _elem height]
   (when-let [view (get-in @util/component-refs [editor-name :view])]
-    (log/info "resize-finish: names = " editor-name  " elem type = " (j/get-in elem [:constructor :name]) " height = " height)
+    (log/info "**** max-height (resize-finish): names = " editor-name " height = " height)
     (let [^EditorState state  (j/get view :state)
           ^StateEffect effect (.reconfigure #^Compartment style-compartment (editor-theme height))
           ^Transaction trans  (.update state (j/lit {:effects [effect]}))]
@@ -123,15 +125,15 @@
 ;;; ToDo: For the time being, I'm assuming every editor gets its own copy of the extensions.
 ;;;       To check this, get the values
 (defnc Editor
-  [{:keys [text ext-adds name] :or {ext-adds #js []}}]
+  [{:keys [text ext-adds name height] :or {ext-adds #js []}}] ; <========== Maybe try passing height in from js/window
   (let [ed-ref (hooks/use-ref nil)
         txt (if (string? text) text (or (:success text) (:failure text) ""))
-        editor-state (state/make-state (-> #js [extensions] (.concat ext-adds)) txt)
         view-dom (atom nil)]
-    (hooks/use-effect :once
+    (hooks/use-effect [name]
        (when-let [parent (j/get ed-ref :current)]
-         (let [view (new EditorView (j/obj :state editor-state :parent parent))]
+         (let [editor-state (state/make-state (-> (extensions height name) (.concat ext-adds)) txt)
+               view (new EditorView (j/obj :state editor-state :parent parent))]
            (reset! view-dom (j/get view :dom))
-           (swap! util/component-refs #(assoc % name {:ref parent :view view}))))) ; refs are only for non-functional components.
+           (swap! util/component-refs #(assoc % name {:ref parent :view view})))))
     (d/div {:ref ed-ref :id name} ; style works but looks ugly because it wraps editor tightly.
            @view-dom)))
