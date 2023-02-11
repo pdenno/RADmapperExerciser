@@ -51,7 +51,12 @@
 ;;;======================= Elena-1
    {:name "Elena 1"
     :code
-"[$schemaA, $schemaB].library_content.
+"( $q := query{[?e :schema_complexTypes ?c]
+              [?e :sp_name ?superName]
+              [?c :model_sequence ?m]
+              [?m :sp_name ?subName]};
+  $q([$schemaA, $schemaB]) )"
+#_"[$schemaA, $schemaB].library_content.
 schema_complexTypes.
 model_sequence.
 sp_name"

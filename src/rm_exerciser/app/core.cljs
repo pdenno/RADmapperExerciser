@@ -5,7 +5,8 @@
    [applied-science.js-interop :as j]
    ["@codemirror/view" :as view]
    ["@mui/material/colors" :as colors]
-   ["@mui/material/CssBaseline$default" :as CssBaseline] ; It is a component.
+   ["@mui/material/CssBaseline$default" :as CssBaseline]
+   ["@mui/material/IconButton$default" :as IconButton]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
