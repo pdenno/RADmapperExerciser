@@ -20,7 +20,8 @@
 
 (defn page-routes [_opts]
   [["/" {:get home}]
-   ["/save-message" {:post rm-exerciser/save-message!}]])
+   ["/save-message" {:post rm-exerciser/save-message!}]
+   #_["/process-rm" {:get rm-exerciser/process-rm}]]) ; It only belongs in routes/api.clj ???
 
 (defn route-data [opts]
   (merge

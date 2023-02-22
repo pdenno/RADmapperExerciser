@@ -62,7 +62,7 @@
     (let [user-data (get-user-data)]
       (log/info "******* For RM eval: CODE = \n" code)
       (log/info "******* For RM eval: DATA = \n" user-data)
-      (let [result (try (as-> (ev/processRM :ptag/exp code  {:execute? true :user-data user-data}) ?r
+      (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
                           (str ?r)
                           {:success ?r})
                         (catch js/Error e {:failure (str "Error: " (.-message e))}))]

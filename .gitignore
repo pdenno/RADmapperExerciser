@@ -18,7 +18,17 @@ play/
 /checkouts
 /src/gen
 
-
+.clj-kondo/.cache
+.clj-kondo/babashka
+.clj-kondo/com.fulcrologic
+.clj-kondo/com.wsscode
+.clj-kondo/funcool
+.clj-kondo/rewrite-clj
+.clj-kondo/taoensso
+.clj-kondo/lilactown
+.clj-kondo/metosin
+.lsp/.cache
+modules/
 
 # From the shadow-cljs project
 pom.xml

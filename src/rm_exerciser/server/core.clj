@@ -37,17 +37,5 @@
        (reset! system))
     (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
 
-#_(defn start-app [& [params]]
-  ((or (:start params) (:start defaults) (fn [])))
-  (println "before system config")
-  (let [sys (config/system-config (or (:opts params) (:opts defaults) {}))] ; <========== This is where the problem is!
-    (println "after system config")
-    (log/info "after sys config")
-    (as-> sys ?sys
-      (do (log/info "before prep") (ig/prep ?sys))
-      (do (log/info "before init") (ig/init ?sys))
-    (reset! system ?sys)))
-  (.addShutdownHook (Runtime/getRuntime) (Thread. stop-app)))
-
 (defn -main [& _]
   (start-app))

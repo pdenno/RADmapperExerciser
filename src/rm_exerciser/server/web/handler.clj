@@ -5,8 +5,10 @@
     [reitit.ring :as ring]
     [reitit.swagger-ui :as swagger-ui]))
 
+;;; This gets run at (user/my-reset).
 (defmethod ig/init-key :handler/ring
   [_ {:keys [router api-path] :as opts}]
+  (println "ig/init-key :handler/ring, api-path = " api-path)
   (ring/ring-handler
     router
     (ring/routes

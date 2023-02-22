@@ -41,6 +41,10 @@
 
 (def refresh repl/refresh)
 
+;;; POD added
+(defn my-reset []
+  (reset))
+
 (comment
   (go)
   (reset))
