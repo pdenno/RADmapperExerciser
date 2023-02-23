@@ -17,6 +17,7 @@
    [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
    ["react" :as react]
+   ["superagent" :as supera]
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
@@ -194,7 +195,7 @@
 (defn ^:export init []
   (mount-root))
 
-(defn get-style [dom]
+#_(defn get-style [dom]
   (reduce (fn [m k]
             (let [v (j/get dom (keyword k))]
               (if-let [val (and (not= v "") v)]
@@ -202,3 +203,18 @@
                 m)))
           {}
           (->> (-> dom (j/get :style) js-keys js->clj) (filter string?))))
+
+(defn tryme []
+  (try
+    (let [res (new supera/Request)
+          promise (j/call res :then
+                          (fn [& args] (js/console.log "success: args =" args ))
+                          (fn [& args] (js/console.log "failure: args =" args )))]
+        (reset! diag promise))
+    (catch js/Error e (js/console.log "Error on tryme: " e))))
+
+#_(defn tryme2 []
+  (let [res (supera/request "GET" "/api/healthxxx")]
+        (.then res
+           (fn [& args] (js/console.log "success: args =" args ))
+           (fn [& args] (js/console.log "failure: args =" args )))))

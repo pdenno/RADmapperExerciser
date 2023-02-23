@@ -8,8 +8,8 @@ target
 log/
 
 node_modules/
+modules/
 public/js
-package-lock.json
 resources/migrations/
 resources/public/js/
 play/
