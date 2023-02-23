@@ -27,7 +27,7 @@
            ;; heart of the app
            com.github.pdenno/rad-mapper {#_#_:mvn/version "1.0.186" ; For local build
                                          :git-sha "ae16f29"         ; For docker
-                                         :git/url "https://github.com/clojure/tools.build.git"}
+                                         :git/url "https://github.com/pdenno/RADmapper.git"}
            thheller/shadow-cljs  {:mvn/version "2.21.0"} ; ToDo: Needed for production build. Why?
            applied-science/js-interop {:mvn/version "0.3.3"}}
 

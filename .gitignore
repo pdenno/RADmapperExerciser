@@ -9,7 +9,7 @@ log/
 
 node_modules/
 modules/
-public/js
+public/js/
 resources/migrations/
 resources/public/js/
 play/
@@ -28,7 +28,6 @@ play/
 .clj-kondo/lilactown
 .clj-kondo/metosin
 .lsp/.cache
-modules/
 
 # From the shadow-cljs project
 pom.xml
