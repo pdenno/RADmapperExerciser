@@ -4,8 +4,13 @@
    [rad-mapper.evaluate :as ev]
    [applied-science.js-interop :as j]
    ["@codemirror/view" :as view]
+   ["@mui/icons-material/Save$default" :as Save]
+   ["@mui/material/Box$default" :as Box]
+   ["@mui/material/Button$default" :as Button]
+   ["@mui/material/ButtonGroup$default" :as ButtonGroup]
    ["@mui/material/colors" :as colors]
    ["@mui/material/CssBaseline$default" :as CssBaseline]
+   ["@mui/material/Grid" :as Grid]
    ["@mui/material/IconButton$default" :as IconButton]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
@@ -17,9 +22,11 @@
    [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
    ["react" :as react]
-   ["superagent" :as supera]
+   ["superagent" :as request]
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
+
+(def svr-prefix "http://localhost:3000")
 
 (def diag (atom {}))
 
@@ -54,6 +61,14 @@
   (if-let [s (j/get-in (get-in @util/component-refs ["data-editor" :view]) [:state :doc])]
     (.toString s)
     ""))
+
+(defn get-user-code
+  "Return the string content of the data editor."
+  []
+  (if-let [s (j/get-in (get-in @util/component-refs ["code-editor" :view]) [:state :doc])]
+    (.toString s)
+    ""))
+
 
 (defn run-code
   "ev/processRM the source, returning a string that is either the result of processing
@@ -117,6 +132,8 @@
                   :on-stop-drag-up (partial editor/resize-finish "code-editor")
                   :on-stop-drag-dn (partial editor/resize-finish "result")}})
 
+(declare save-example-to-svr)
+
 (defnc Top [{:keys [rm-example width height]}]
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
         banner-height 42
@@ -137,7 +154,11 @@
            :padding "2px 0 2px 20px"
            :noWrap false
            :height banner-height}
-          "RADmapper")
+          ($ Stack {:direction "row"}
+             "RADmapper"
+             ($ Box {:minWidth (- width 320)}) ; I'm amazed this sorta works! The 350 depends on the width of "RADmapper".
+             ($ ButtonGroup
+                ($ IconButton {:onClick save-example-to-svr} ($ Save {:color "white"})))))
        ($ ShareLeftRight
           {:left  ($ Stack {:direction "column" :spacing "10px"}
                      ($ SelectExample {:init-example (:name rm-example)})
@@ -204,17 +225,21 @@
           {}
           (->> (-> dom (j/get :style) js-keys js->clj) (filter string?))))
 
-(defn tryme []
-  (try
-    (let [res (new supera/Request)
-          promise (j/call res :then
-                          (fn [& args] (js/console.log "success: args =" args ))
-                          (fn [& args] (js/console.log "failure: args =" args )))]
-        (reset! diag promise))
-    (catch js/Error e (js/console.log "Error on tryme: " e))))
+(defn tryme3 []
+  (-> (request "GET" (str svr-prefix "/api/health"))
+      (.then    #(js/console.log "success = " %))
+      (.catch   #(js/console.log "catch = " %))
+      (.finally (fn [_] nil))))
 
-#_(defn tryme2 []
-  (let [res (supera/request "GET" "/api/healthxxx")]
-        (.then res
-           (fn [& args] (js/console.log "success: args =" args ))
-           (fn [& args] (js/console.log "failure: args =" args )))))
+(defn save-example-to-svr
+  "Save the example to the server popup a dialog indicating a URI based on the UUID returned."
+  [_]
+  (let [code (get-user-code)
+        data (get-user-data)]
+    (-> (request "POST" (str svr-prefix "/api/example"))
+        (.send (clj->js {:code code :data data}))
+        (.then    #(when-let [id (-> % (j/get :body) (j/get :save-id))]
+                     (let [save-id (str svr-prefix "/api/example?id=" id)]
+                       (js/console.log "save-id = " save-id))))
+        (.catch   #(js/console.log "catch = " %))
+        (.finally (fn [_] nil)))))

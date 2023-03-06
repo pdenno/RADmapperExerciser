@@ -24,10 +24,15 @@
    ["/health"
     {:get health/healthcheck!}]
    ["/process-rm"
-    {:get {:summary "Run RADmapper code provided as a query parameter."
+    {:get {:summary "Run RADmapper code (and optionally data) provided as query parameters."
            :parameters {:query {:code string?
-                                #_#_:data string?}} ; ToDo: Learn how to express optional query parameters.
-           :handler rm/process-rm}}]])
+                                :data string?}} ; ToDo: Learn how to express optional query parameters.
+           :handler rm/process-rm}}]
+   ["/example" ; Can have a get here too!
+    {:post {:summary "POST a RADmapper example (code and, optionally, data)."
+            :parameters {:body {:code string?, :data string?}}
+            :responses {200 {:body {:save-id string?}}}
+            :handler rm/post-example}}]])
 
 (defn route-data
   [opts]

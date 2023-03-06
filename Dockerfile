@@ -10,8 +10,7 @@ FROM debian
 ENV JAVA_HOME=/opt/java/openjdk
 COPY --from=eclipse-temurin:17 $JAVA_HOME $JAVA_HOME
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-
-ENV CLOJURE_VERSION=1.11.1.1182
+ENV CLOJURE_VERSION=1.11.1.1224
 
 WORKDIR /tmp
 
@@ -29,6 +28,15 @@ clojure -e "(clojure-version)"
 
 # Install nodejs from nodesource using apt-get
 RUN /usr/bin/curl -sL https://deb.nodesource.com/setup_19.x | bash - && apt-get install -yq nodejs build-essential
+
+WORKDIR /tmp
+RUN git clone https://github.com/pdenno/RADmapper.git
+WORKDIR /tmp/RADmapper
+ENV RM_VERSION="git describe --tags --abbrev=0"
+RUN echo "RADmapper version: " $RM_VERSION
+RUN clj -T:build clean
+RUN clj -T:build jar
+RUN clj -T:build install
 
 WORKDIR /
 

@@ -2,6 +2,7 @@
   (:require
    [clojure.tools.logging :as log]
    [rad-mapper.evaluate   :as ev]
+   [rm-exerciser.server.example-db :as examp]
    [rm-exerciser.server.web.routes.utils :as utils]
    [ring.util.http-response :as http-response])
   (:import
@@ -45,30 +46,30 @@
   (reset! diag request)
   (try
     (if-let [code (get query-params "code")]
-      (let [res (ev/processRM :ptag/exp code {:pprint? true})]
+      (let [data (or (get query-params "data") "")
+            res (ev/processRM :ptag/exp code {:pprint? true :user-data data})]
         (http-response/ok {:status 200
                            :headers {}
                            :body res}))
       (http-response/ok {:status 400 ; "bad request"
                          :body "No code found."}))
     (catch Exception e
+
       (log/error e "Error processing RADmapper code. Code = " (get query-params "code"))
       (-> (http-response/found "/")
           (assoc :flash {:errors {:unknown (.getMessage e)}})))))
 
-#_(defn process-rm-path
-  "Run RADmapper processRM, returning the result."
-  [{:keys [path-params] :as request}]
-  (reset! diag request)
+(defn post-example
+  "Save an example in the examples data base."
+  [request]
   (try
-    (if-let [code (:code path-params)]
-      (let [res (ev/processRM :ptag/exp code {:pprint? true})]
-        (http-response/ok {:status 200
-                           :headers {}
-                           :body res}))
-      (http-response/ok {:status 400 ; "bad request"
-                         :body "No code found."}))
+    (reset! diag
+            (if (-> request :parameters :body :code)
+              (if-let [uuid (examp/store-example (-> request :parameters :body))]
+                (http-response/ok {:save-id (str uuid)})
+                (http-response/ok {:status 400 :body "Store failed."}))
+              (http-response/ok {:status 400 :body "No code found."})))
     (catch Exception e
-      (log/error e "Error processing RADmapper code. Code = " (:code path-params))
+      (log/error e "Error in post-example. parameters = " (:parameters request))
       (-> (http-response/found "/")
           (assoc :flash {:errors {:unknown (.getMessage e)}})))))
