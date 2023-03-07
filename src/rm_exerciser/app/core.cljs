@@ -4,25 +4,21 @@
    [rad-mapper.evaluate :as ev]
    [applied-science.js-interop :as j]
    ["@codemirror/view" :as view]
-   ["@mui/icons-material/Save$default" :as Save]
    ["@mui/material/Box$default" :as Box]
-   ["@mui/material/Button$default" :as Button]
    ["@mui/material/ButtonGroup$default" :as ButtonGroup]
    ["@mui/material/colors" :as colors]
    ["@mui/material/CssBaseline$default" :as CssBaseline]
-   ["@mui/material/Grid" :as Grid]
-   ["@mui/material/IconButton$default" :as IconButton]
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
    [rm-exerciser.app.components.editor :as editor :refer [Editor set-editor-text SelectExample]]
    [rm-exerciser.app.components.examples :as examples :refer [rm-examples]]
    [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight]]
+   [rm-exerciser.app.components.save-modal :refer [SaveModal]]
    [rm-exerciser.app.util :as util]
    [helix.core :as helix :refer [defnc $ <>]]
    [helix.hooks :as hooks]
-   ["react" :as react]
-   ["superagent" :as request]
+   ;["react" :as react]
    ["react-dom/client" :as react-dom]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
@@ -32,16 +28,19 @@
 
 (def exerciser-theme
   (styles/createTheme
-   (j/lit {#_#_:palette {:background {:paper "#F0F0F0"}
-                     :primary   colors/yellow
-                     :secondary colors/green}
+   (j/lit {:palette {:background {:paper "#F0F0F0"}
+                     :primary   colors/blue
+                     :secondary colors/grey} ; Secondary here doesn't change icon color. Needs 'main' or 'A400' property.
            :typography {:subtitle1 {:fontSize 5}}
 
            #_#_:text {:primary "#173A5E"
                   :secondary "#46505A"}
 
-           :components {:MuiCssBaseline {:text {:primary "#173A5E"
+           :components {:MuiCssBaseline {:text {:primary "#173A5E" ; This is being ignored.
                                                 :secondary "#46505A"}}
+                        #_#_:MuiIconButton
+                        {:variants [{:props {:variant "myWhite"}
+                                     :style {:color "secondary"}}]}
                         :MuiDivider
                         {:variants [{:props {:variant "activeVert"}  ; vertical divider of horizontal layout
                                      :style {:cursor "ew-resize"
@@ -132,8 +131,6 @@
                   :on-stop-drag-up (partial editor/resize-finish "code-editor")
                   :on-stop-drag-dn (partial editor/resize-finish "result")}})
 
-(declare save-example-to-svr)
-
 (defnc Top [{:keys [rm-example width height]}]
   (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
         banner-height 42
@@ -158,7 +155,7 @@
              "RADmapper"
              ($ Box {:minWidth (- width 320)}) ; I'm amazed this sorta works! The 350 depends on the width of "RADmapper".
              ($ ButtonGroup
-                ($ IconButton {:onClick save-example-to-svr} ($ Save {:color "white"})))))
+                ($ SaveModal {:code-fn #(get-user-code) :data-fn #(get-user-data) :svr-prefix svr-prefix}))))
        ($ ShareLeftRight
           {:left  ($ Stack {:direction "column" :spacing "10px"}
                      ($ SelectExample {:init-example (:name rm-example)})
@@ -224,22 +221,3 @@
                 m)))
           {}
           (->> (-> dom (j/get :style) js-keys js->clj) (filter string?))))
-
-(defn tryme3 []
-  (-> (request "GET" (str svr-prefix "/api/health"))
-      (.then    #(js/console.log "success = " %))
-      (.catch   #(js/console.log "catch = " %))
-      (.finally (fn [_] nil))))
-
-(defn save-example-to-svr
-  "Save the example to the server popup a dialog indicating a URI based on the UUID returned."
-  [_]
-  (let [code (get-user-code)
-        data (get-user-data)]
-    (-> (request "POST" (str svr-prefix "/api/example"))
-        (.send (clj->js {:code code :data data}))
-        (.then    #(when-let [id (-> % (j/get :body) (j/get :save-id))]
-                     (let [save-id (str svr-prefix "/api/example?id=" id)]
-                       (js/console.log "save-id = " save-id))))
-        (.catch   #(js/console.log "catch = " %))
-        (.finally (fn [_] nil)))))
