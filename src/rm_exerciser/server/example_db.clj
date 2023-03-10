@@ -1,4 +1,4 @@
-(ns rm-exerciser.server.example-db ; Hey Thanks! Nice, LSP!
+(ns rm-exerciser.server.example-db
   (:require
    [datahike.api        :as d]
    [datahike.pull-api   :as dp]
@@ -29,7 +29,7 @@
   []
   (if (d/database-exists? db-cfg)
     (d/connect db-cfg)
-    (log/warn "There is no DB to connect to.")))
+    (log/warn "There is no example DB to connect to.")))
 
 (defn create-db!
   "Create the database if :rebuild? is true, otherwise just set the connection atom, conn."

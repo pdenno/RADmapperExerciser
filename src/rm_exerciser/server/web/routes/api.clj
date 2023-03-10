@@ -11,7 +11,7 @@
    [reitit.ring.middleware.parameters :as parameters]
    [reitit.swagger :as swagger]))
 
-;; Routes
+;; Routes. See https://cljdoc.org/d/metosin/reitit/0.5.5/doc/ring/swagger-support
 (defn api-routes
   "Define API routes (as opposed to page routes defined elsewhere).
    The things are examined by the swagger 2.0 API. Thus if I define a route
@@ -22,7 +22,7 @@
            :swagger {:info {:title "rm-exerciser.server API"}}
            :handler (swagger/create-swagger-handler)}}]
    ["/health"
-    {:get health/healthcheck!}]
+    {:get {:handler health/healthcheck!}}]
    ["/process-rm"
     {:get {:summary "Run RADmapper code (and optionally data) provided as query parameters."
            :parameters {:query {:code string?
@@ -32,7 +32,14 @@
     {:post {:summary "POST a RADmapper example (code and, optionally, data)."
             :parameters {:body {:code string?, :data string?}}
             :responses {200 {:body {:save-id string?}}}
-            :handler rm/post-example}}]])
+            :handler rm/post-example}}]
+   ["/graph-query"
+    {:get {:summary "Make a graph query."
+           :parameters {:query {:ident-type string?
+                                :ident-val  string?
+                                :request-objs string?}}
+           :responses {200 {:body map?}}
+           :handler rm/graph-query}}]])
 
 (defn route-data
   [opts]
@@ -60,6 +67,7 @@
 
 (derive :reitit.routes/api :reitit/routes)
 
+;;; ToDo: How this works, how base-path is resolved, is a mystery.
 (defmethod ig/init-key :reitit.routes/api
   [_ {:keys [base-path]
       :or   {base-path ""}

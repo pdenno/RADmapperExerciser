@@ -20,6 +20,7 @@
    [helix.hooks :as hooks]
    ;["react" :as react]
    ["react-dom/client" :as react-dom]
+   ["react-router-dom" :as router :refer [useSearchParams]]
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def svr-prefix "http://localhost:3000")
@@ -180,7 +181,11 @@
   {:helix/features {:check-invalid-hooks-usage true}}
   (let  [[width  set-width]  (hooks/use-state (j/get js/window :innerWidth))
          [height set-height] (hooks/use-state (j/get js/window :innerHeight))
+         ;; https://reactrouter.com/en/6.8.2/hooks/use-search-params
+         #_#_[search-params set-search-params] (useSearchParams)
          carry-dims-atm (atom {:width width :height height})]
+    ;; Uncaught Error: useLocation() may be used only in the context of a <Router> component.
+    ;; (js/console.log "search params = " search-params)
     (letfn [(handle-resize [& _args]
               (let [new-width  (j/get js/window :innerWidth)
                     new-height (j/get js/window :innerHeight)]

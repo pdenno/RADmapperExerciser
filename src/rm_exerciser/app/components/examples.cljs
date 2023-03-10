@@ -5,8 +5,13 @@
 (defn get-example [name]
   (some #(when (= name (:name %)) %) rm-examples))
 
+
 (def rm-examples
-  [{:name "2 Databases"
+  [{:name "Schema from server"
+    :code "$read([['schema/name', 'urn:oagis-10.8:Nouns:Invoice'],
+       ['schema-object']])"}
+
+   {:name "2 Databases"
     :code
     "( $qFn :=  query(){[$DBa ?e1 :email ?id]
                    [$DBb ?e2 :id    ?id]

@@ -18,10 +18,13 @@
 (defn home [{:keys [flash] :as request}]
   (layout/render request "home.html" {:errors (:errors flash)}))
 
+(defn home-preload [{:keys [flash] :as request}]
+  (layout/render request "home.html" {:errors (:errors flash)}))
+
 (defn page-routes [_opts]
   [["/" {:get home}]
-   ["/save-message" {:post rm-exerciser/save-message!}]
-   #_["/process-rm" {:get rm-exerciser/process-rm}]]) ; It only belongs in routes/api.clj ???
+   ["/example" {:get home-preload}]
+   #_["/save-message" {:post rm-exerciser/save-message!}]])
 
 (defn route-data [opts]
   (merge
