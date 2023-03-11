@@ -11,7 +11,7 @@
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
-   [rm-exerciser.app.components.editor :as editor :refer [Editor set-editor-text SelectExample]]
+   [rm-exerciser.app.components.editor :as editor :refer [Editor set-editor-text get-editor-text SelectExample]]
    [rm-exerciser.app.components.examples :as examples :refer [rm-examples]]
    [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight]]
    [rm-exerciser.app.components.save-modal :refer [SaveModal]]
@@ -55,27 +55,12 @@
                         {:variants [{:props {:variant "dataEditor"}
                                      :style {:multiline true}}]}}})))
 
-(defn get-user-data
-  "Return the string content of the data editor."
-  []
-  (if-let [s (j/get-in (get-in @util/component-refs ["data-editor" :view]) [:state :doc])]
-    (.toString s)
-    ""))
-
-(defn get-user-code
-  "Return the string content of the data editor."
-  []
-  (if-let [s (j/get-in (get-in @util/component-refs ["code-editor" :view]) [:state :doc])]
-    (.toString s)
-    ""))
-
-
 (defn run-code
   "ev/processRM the source, returning a string that is either the result of processing
    or the error string that processing produced."
   [source]
   (when-some [code (not-empty (str/trim source))]
-    (let [user-data (get-user-data)]
+    (let [user-data (get-editor-text "data")]
       (log/info "******* For RM eval: CODE = \n" code)
       (log/info "******* For RM eval: DATA = \n" user-data)
       (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
@@ -107,6 +92,21 @@
 (defn get-props [obj]
   (when (map? (js->clj obj))
     (js->clj (or (j/get obj :props) (get obj "props")))))
+
+;;; These two should go away! <================================================================
+(defn get-user-data
+  "Return the string content of the data editor."
+  []
+  (if-let [s (j/get-in (get-in @util/component-refs ["data-editor" :view]) [:state :doc])]
+    (.toString s)
+    ""))
+
+(defn get-user-code
+  "Return the string content of the data editor."
+  []
+  (if-let [s (j/get-in (get-in @util/component-refs ["code-editor" :view]) [:state :doc])]
+    (.toString s)
+    ""))
 
 (defn search-props
   "Return the object that has a prop that passes the test."
@@ -156,7 +156,8 @@
              "RADmapper"
              ($ Box {:minWidth (- width 320)}) ; I'm amazed this sorta works! The 350 depends on the width of "RADmapper".
              ($ ButtonGroup
-                ($ SaveModal {:code-fn #(get-user-code) :data-fn #(get-user-data) :svr-prefix svr-prefix}))))
+                ($ SaveModal {:code-fn #(get-user-code) #_#(get-editor-text "code")
+                              :data-fn #(get-user-data) #_#(get-editor-text "data")}))))
        ($ ShareLeftRight
           {:left  ($ Stack {:direction "column" :spacing "10px"}
                      ($ SelectExample {:init-example (:name rm-example)})

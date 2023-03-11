@@ -58,6 +58,7 @@
 (defn post-example
   "Save an example in the examples data base."
   [request]
+  (log/info "body = " (-> request :parameters :body))
   (try
     (if (-> request :parameters :body :code)
       (if-let [uuid (examp/store-example (-> request :parameters :body))]

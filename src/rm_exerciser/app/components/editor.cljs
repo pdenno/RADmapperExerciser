@@ -75,6 +75,13 @@
           ^ChangeSpec  change (j/lit {:from 0 :to (j/get-in state [:doc :length]) :insert text})]
       (.dispatch view (j/lit {:changes change})))))
 
+(defn get-editor-text
+  "Return the string content of the data editor."
+  [editor-name]
+  (if-let [s (j/get-in (get-in @util/component-refs [editor-name :view]) [:state :doc])]
+    (.toString s)
+    ""))
+
 (defnc SelectExample
   [{:keys [init-example]}]
   (let [[example set-example] (hooks/use-state init-example)]
