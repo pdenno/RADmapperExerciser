@@ -4,7 +4,7 @@
    [clojure.tools.logging :as log]
    [clojure.walk          :as walk :refer [keywordize-keys]]
    [rad-mapper.evaluate   :as ev]
-   [schema-db.core        :refer [connect-db]]
+   [schema-db.db-util     :as du]
    [schema-db.resolvers   :refer [pathom-resolve]]
    [rm-exerciser.server.example-db :as examp]
    [rm-exerciser.server.web.routes.utils :as utils]
@@ -70,8 +70,8 @@
       (-> (http-response/found "/")
           (assoc :flash {:errors {:unknown (.getMessage e)}})))))
 
-;;; {:ident-type schema/name, :ident-val "urn:oagis-10.8:Nouns:Invoice", :request-objs [:sdb/schema-object]}
-;;; (pathom-resolve [{[:schema/name "urn:oagis-10.8.4:Nouns:Invoice"] [:sdb/schema-object]}])
+;;; ($read [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
+;;;  = (pathom-resolve {:schema/name "urn:oagis-10.8.4:Nouns:Invoice"} [:sdb/schema-object])
 (defn graph-query
   "Make a graph query (currently only to data managed by this server).
    Query parameters:
@@ -81,21 +81,17 @@
                       for example, 'foo|bar' ==> [:sdb/foo :sdb/bar]."
   [request]
   (log/info "Call to graph-query")
-  (if (connect-db)
-    (let [{:keys [ident-type ident-val request-objs] :as req}
-          (-> request
-              :query-params
-              keywordize-keys
-              (update :ident-type keyword)
-              (update :request-objs #(as-> % ?x
-                                       (split ?x #"\|")
-                                       (mapv (fn [x] (keyword "sdb" x)) ?x))))] ; ToDo: check for '/' in x.
-      (log/info "****/api/graph-query: " req)
-      (if (and ident-type ident-val request-objs)
-        (let [query [{[ident-type ident-val] request-objs}]
-              res (pathom-resolve query)]
-          (reset! diag {:query query :res res})
-          (log/info "****/api/graph-query: response = " (http-response/ok "some-string"))
-          (http-response/ok {:objects res}))
-        (http-response/ok {:body "Missing query args."})))
-    (http-response/ok {:body "Could not connect to DB."})))
+  (let [{:keys [ident-type ident-val request-objs] :as req}
+        (-> request
+            :query-params
+            keywordize-keys
+            (update :ident-type keyword)
+            (update :request-objs #(as-> % ?x
+                                     (split ?x #"\|")
+                                     (mapv (fn [x] (keyword "sdb" x)) ?x))))] ; ToDo: check for '/' in x.
+    (log/info "****/api/graph-query: " req)
+    (if (and ident-type ident-val request-objs)
+      (let [res (pathom-resolve {ident-type ident-val} request-objs)]
+        (reset! diag {:res res})
+        (http-response/ok {:graph-query-response res}))
+      (http-response/ok {:body "Missing query args."}))))

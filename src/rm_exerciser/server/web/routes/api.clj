@@ -38,7 +38,7 @@
            :parameters {:query {:ident-type string?
                                 :ident-val  string?
                                 :request-objs string?}}
-           :responses {200 {:body map?}}
+           :responses {200 {:graph-query-response map?}}
            :handler rm/graph-query}}]])
 
 (defn route-data

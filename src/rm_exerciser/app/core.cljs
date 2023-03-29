@@ -24,6 +24,7 @@
    [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def svr-prefix "http://localhost:3000")
+(declare get-user-data get-user-code)
 
 (def diag (atom {}))
 
@@ -60,9 +61,10 @@
    or the error string that processing produced."
   [source]
   (when-some [code (not-empty (str/trim source))]
-    (let [user-data (get-editor-text "data")]
-      (log/info "******* For RM eval: CODE = \n" code)
-      (log/info "******* For RM eval: DATA = \n" user-data)
+    (let [user-data (get-user-data)#_(get-editor-text "data")]
+      ;;(log/info "******* For RM eval: CODE = \n" code)
+      ;;(log/info "******* For RM eval: DATA = \n" user-data)
+      (reset! diag {:code code :data user-data})
       (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
                           (str ?r)
                           {:success ?r})
@@ -175,7 +177,7 @@
                                      :text result})
                       :share-fns (:right-share top-share-fns)})
            :share-fns (:left-share top-share-fns)
-           :lf-pct 0.60
+           :lf-pct 0.55
            :init-width width}))))
 
 (defnc app []

@@ -3,6 +3,7 @@
   (:require
     [clojure.pprint]
     [clojure.spec.alpha :as s]
+    [clojure.tools.logging :as log]
     [clojure.tools.namespace.repl :as repl]
     [criterium.core :as c]                                  ;; benchmarking
     [expound.alpha :as expound]
@@ -11,7 +12,10 @@
     [integrant.repl.state :as state]
     [kit.api :as kit]
     [lambdaisland.classpath.watch-deps :as watch-deps]      ;; hot loading for deps
-    [rm-exerciser.server.core :refer [start-app]]))
+    [mount.core :as mount]
+    [rm-exerciser.server.core :refer [start-app]]
+    [rad-mapper.evaluate]
+    [schema-db.core]))
 
 ;; uncomment to enable hot loading for deps
 (watch-deps/start! {:aliases [:dev :test]})
@@ -32,9 +36,8 @@
                               (-> (rm-exerciser.server.config/system-config {:profile :test})
                                   (ig/prep)))))
 
-;; Can change this to test-prep! if want to run tests as the test profile in your repl
-;; You can run tests in the dev profile, too, but there are some differences between
-;; the two profiles.
+;; Can change this to test-prep! if want to run tests as the test profile in your repl.
+;; You can run tests in the dev profile, too, but there are some differences between the two profiles.
 (dev-prep!)
 
 (repl/set-refresh-dirs "src/clj")
@@ -43,7 +46,14 @@
 
 ;;; POD added
 (defn my-reset []
+  (log/info "===== Exerciser reset ======")
+  (mount/start) ; Start the schema-db too. See schema-db.core.
   (reset))
+
+;;; Use start and not go, which will miss starting schema-db
+(defn start []
+  (mount/start)
+  (go))
 
 (comment
   (go)

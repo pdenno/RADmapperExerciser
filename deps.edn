@@ -17,9 +17,9 @@
            metosin/muuntaja                {:mvn/version "0.6.8"} ; http encode/decode
 
            ;; kit Libs
-           io.github.kit-clj/kit-core      {:mvn/version "1.0.3"}     ; very small; uses clojure.tools.logging and integrant though.
-           io.github.kit-clj/kit-undertow  {:mvn/version "1.0.4"} ; very small.
-           selmer/selmer                   {:mvn/version "1.12.55"} ; Probably can go, but see pages/layout.clj and routes/pages.clj.
+           io.github.kit-clj/kit-core      {:mvn/version "1.0.3"}   ; very small; uses clojure.tools.logging and integrant though.
+           io.github.kit-clj/kit-undertow  {:mvn/version "1.0.4"}   ; very small.
+           selmer/selmer                   {:mvn/version "1.12.55"} ; Used for home.html.
            luminus/ring-ttl-session        {:mvn/version "0.3.3"}
 
            lilactown/helix                 {:mvn/version "0.1.9"}
@@ -27,12 +27,13 @@
            funcool/promesa                 {:mvn/version "10.0.594"}
 
            ;; heart of the app
-           com.github.pdenno/rad-mapper    {:mvn/version "1.0.195" ; For local build
+           com.github.pdenno/rad-mapper    {:mvn/version "1.0.208" ; For local build
                                             #_#_#_#_#_#_:git/tag "v1.0.186"
                                             :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"         ; For docker
                                             :git/url "https://github.com/pdenno/RADmapper.git"}
-           io.replikativ/datahike          {:mvn/version "0.6.1530"} ; Remember to rebuild databases on update. ; 1537 exists
-           thheller/shadow-cljs            {:mvn/version "2.21.0"} ; ToDo: Needed for production build. Why?
+
+           io.replikativ/datahike          {:mvn/version "0.6.1538"} ; Remember to rebuild databases on update.
+           thheller/shadow-cljs            {:mvn/version "2.21.0"} ; ToDo: Needed for production build. I might be using [shadow.cljs.modern :refer (js-await)] etc.
            applied-science/js-interop      {:mvn/version "0.3.3"}}
 
  :aliases {:build {:deps {io.github.clojure/tools.build {:git/tag "v0.9.3" :git/sha "e537cd1"

@@ -1,11 +1,11 @@
 (ns rm-exerciser.app.components.save-modal
   (:require
    [ajax.core :refer [GET POST]]
+   [promesa.core :as p]
    [applied-science.js-interop :as j]
    [clojure.pprint             :refer [cl-format]]
    [helix.core :refer [defnc $]]
    [helix.hooks :as hooks]
-   [promesa.core :as p]
    [rm-exerciser.app.util :refer [component-refs]]
    [rm-exerciser.app.components.editor :refer [set-editor-text get-editor-text]]
    ["@mui/material/Box$default" :as Box]
@@ -27,109 +27,44 @@
              :p 2}))
 
 (def white-style (clj->js {:color "background.paper"}))
+(def svr-prefix "http://localhost:3000/")
 (def diag (atom nil))
-
-;;; ToDo: My use of promesa seems excessively complex, but it took me a while just to get this far!
-(def response-atm "An atom for communication of responses for AJAX calls." (atom nil))
-(defn positive-response!
-  "Set the response atm and resolve the promise"
-  [response p]
-  (js/console.log (str "CLJS-AJAX returns:" response))
-  (reset! response-atm response)
-  (p/resolve! p response))
-
-(defn error-response!
-  [status status-text p]
-  (js/console.log (str "CLJS-AJAX error: status= " status " status-text= " status-text))
-  (p/resolve! p))
-
-;;; This was a bad idea, I think! (Waiting seems impossible!)
-#_(defn server-ok? []
-  (let [p (p/deferred)]
-    (reset! diag p)
-    (GET "/api/health"
-         {:handler (fn [response] (positive-response! response p))
-          :error-handler (fn [{:keys [status status-text]}] (error-response! status status-text p))})
-    (p/bind p (fn [x] (js/console.log "Done waiting: x = " x)
-                (p/resolved @response-atm)))))
-
-;;; https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
-;;; const sleep = ms => new Promise(r => setTimeout(r, ms));
-;;; function sleep(ms) {
-;;;    return new Promise(resolve => setTimeout(resolve, ms));
-;;; new() just doesn't work for this!
-
-;;; next try (js/Promise #(.setTimeout % ms)). What is the new?!??!
-;;; BETTER THAN THAT, READ ABOUT JS/PROMISE <====================================================
-;;; const sleep = ms => new Promise(r => setTimeout(r, ms));
-(defn sleep [ms] (.resolve js/Promise #(.setTimeout % ms)))
-
-(defn tryme []
-  (-> (sleep 4000)
-      (.then (js/console.log "********************** Done."))))
-
-
-;(defn sleep [ms] (.setTimeout (.resolve js/Promise) ms))
-
-#_(defn sleep [ms]
-  (-> js/Promise
-      (.resolve #(.setTimeout % 4000))
-      (.then #(println "Done!" %))))
-
-;;; const sleep = ms => new Promise(r => setTimeout(r, ms));
-#_(defn sleep [ms]
-  (-> js/Promise
-      (.resolve #(.setTimeout % 4000))
-      (.then #(println "Done!" %))))
-
-#_(defn sleep [ms]
-  (-> (js/Promise.resolve #(.setTimeout % 4000))
-      (.then #(println "Done!" %))))
-
-#_(defn sleep [ms]
-  (-> (js/Promise.resolve (.setTimeout 4000))
-      (.then #(println "Done!" %))))
-
-
-#_(defn sleep [ms]
-  (-> js/Promise (.setTimeout ms)))
-
-#_(defn sleep [ms]
-  (-> (.resolve js/Promise)
-      (.setTimeout ms)))
-
 
 ;;; https://mui.com/material-ui/react-modal/
 (defnc SaveModal [{:keys [code-fn data-fn]}]
   (let [[open, set-open] (hooks/use-state false)
-        [_url set-url]   (hooks/use-state nil)
-        [text set-text]  (hooks/use-state {:one "" :two ""})]
-    (letfn [(handle-save []
-              (let [p (p/deferred)]
-                (POST "/api/example"
-                      {:params {:code (code-fn) :data (data-fn)}
-                       :timeout 3000
-                       :handler       (fn [response] (positive-response! response p))
-                       :error-handler (fn [{:keys [status status-text]}] (error-response! status status-text p))})
-                (-> p
-                    (p/then (fn [_]
-                              (if-let [save-id (-> @response-atm :save-id)]
-                                (do (js/console.log "User code saved at " save-id)
-                                    (set-url save-id)
-                                    (set-text {:one "To recover the work shown visit:" :two save-id}))
-                                (set-text {:one "Communication with the server failed." :two  ""}))
-                              (set-open true))))))
+        [url set-url]    (hooks/use-state nil)
+        [text set-text]  (hooks/use-state "")
+        modal            (hooks/use-ref nil)]
+    (letfn [(save-success [{:keys [save-id]}]
+              (when (j/get modal :current)
+                (js/console.log "User code saved at:"
+                (set-url (str svr-prefix "example/" save-id))
+                (set-text "To recover the work shown visit:")
+                (set-open true))))
+            (save-failure [status status-text]
+              (when (j/get modal :current)
+                (log/info "Saving example failed: status = " status " status text = " status-text)
+                (set-text "Communication with the server failed.")
+                (set-open true)))
+            (handle-save []
+              (POST "/api/example"
+                    {:params {:code (code-fn) :data (data-fn)}
+                     :timeout 3000
+                     :handler       save-success
+                     :error-handler save-failure}))
             (handle-close [] (set-open false))]
-      ($ "div"
+      ($ "div" {:ref modal}
          ($ IconButton {:onClick handle-save} ($ Save {:sx white-style}))
          ($ Modal {:open open
                    :onClose handle-close
                    :aria-labelledby "save-modal-title"
                    :aria-describedby "save-modal-description"}
             ($ Box {:sx style}
-               ($ Typography {:id "save-modal-title" :variant "h6" :component "h6"}
-                  (:one text))
-               ($ Typography {:id "save-modal-description" :sx {:mt 20}} (:two text))))))))
+               ($ Typography {:id "save-modal-title" :variant "h6" :component "h6"} text)
+               ($ Typography {:id "save-modal-description" :sx {:mt 20}} url)))))))
+
+(def result-atm (atom nil))
 
 ;;; ($read [["schema/name" "urn:oagis-10.8:Nouns:Invoice"],  ["schema-object"]])
 (def test-obj
@@ -137,26 +72,113 @@
     :ident-val "urn:oagis-10.8.4:Nouns:Invoice"
     :request-objs "schema-object"})
 
-#_(defn tryme []
+(defn tryme [] ; Modern promesa with p/do, The winner!
   (let [p (p/deferred)]
-    (GET "/api/graph-query"
-         {:params test-obj
-          :handler (fn [response] (positive-response! response p))
-          :error-handler (fn [{:keys [status status-text]}] (error-response! status status-text p))
-          :timeout 5000})
-    (p/-> (p/bind p (fn [x] (js/console.log "Done waiting: x = " x)
-                      (p/resolved @response-atm)))
-          (fn [_]
-            (js/console.log "Setting editor text."
-            (set-editor-text "data" "small update!" #_(-> @response-atm :objects str)))))))
+    (p/do
+      (log/info "Do this first")
+      (p/do
+        (log/info "Do this next")
+        (GET "http://localhost:3000/api/graph-query" ; ToDo: Need localhost:3000 (exerciser) here?
+             {:params test-obj
+              :handler (fn [resp]
+                         (log/info (str "CLJS-AJAX returns ok."))
+                         (reset! result-atm resp)
+                         (p/resolve! p resp)) ; This isn't 'returned'!
+              :error-handler (fn [{:keys [status status-text]}]
+                               (log/info (str "CLJS-AJAX error: status = " status " status-text= " status-text))
+                               (reset! result-atm :failure!)
+                               (p/reject! p (ex-info "CLJS-AJAX error on /api/graph-query"
+                                                     {:status status :status-text status-text})))
+              :timeout 3000})
+        p ; It waits? here
+        (log/info "'***$read(graph-query)' returns " (-> @result-atm str (subs 0 100) (str "...")))
+        (log/info "Do this penultimately."))
+      (log/info "Do this last"))))
 
 
-;;; Since this is returning a promise at the REPL, I still don't understand Promesa!
-#_(defn server-ok? []
+;;; Flawed? p/do needs a promise?
+#_(defn tryme [] ; Modern promesa with p/do doesn't await for ***$read and doesn't return the @result-atm (but sets it).
   (let [p (p/deferred)]
-    (p/future (GET "/api/health"
-                   {:handler (fn [response] (positive-response! response p))
-                    :error-handler (fn [{:keys [status status-text]}] (error-response! status status-text p))}))
-    (p/chain p
-             (fn [_] (= "up" (-> @response-atm :app :status)))
-             (fn [x] (js/console.log "In catch x = " x) :Foo))))
+    (p/do (GET "/api/graph-query" ; ToDo: Need localhost:3000 (exerciser) here?
+               {:params test-obj
+                :handler (fn [resp]
+                           (log/info (str "CLJS-AJAX returns:" resp))
+                           (reset! result-atm resp)
+                           (p/resolve! p resp)) ; Useless?
+                :error-handler (fn [{:keys [status status-text]}]
+                                 (log/info (str "CLJS-AJAX error: status = " status " status-text= " status-text))
+                                 (reset! result-atm :failure!)
+                                 (p/reject! p (ex-info (str "CLJS-AJAX error: status = " status " status-text= " status-text) {})))
+                :timeout 3000})
+          (log/info "'***$read(graph-query)' returns " @result-atm)
+           @result-atm)))
+
+#_(defn tryme [] ; Modern promesa doesn't have a cljs await.
+  (let [p (p/deferred)]
+    (async
+     (await (GET "/api/graph-query" ; ToDo: Need localhost:3000 (exerciser) here?
+                  {:params test-obj
+                   :handler (fn [resp]
+                              (log/info (str "CLJS-AJAX returns:" resp))
+                              (reset! result-atm resp)
+                              (p/resolve! p resp))
+                   :error-handler (fn [{:keys [status status-text]}]
+                                    (log/info (str "CLJS-AJAX error: status = " status " status-text= " status-text))
+                                    (reset! result-atm :failure!)
+                                    (p/reject! p (ex-info (str "CLJS-AJAX error: status = " status " status-text= " status-text) {})))
+                   :timeout 3000}))
+     (log/info "'***$read(graph-query)' returns " @result-atm)
+     @result-atm)))
+
+#_(defn tryme [] ; shadow: Sets atom but doesn't execute the await part at all.
+    (js-await [res (GET "/api/graph-query"
+                        {:params test-obj
+                         :handler (fn [resp]
+                                    ;(log/info (str "CLJS-AJAX returns: " resp))
+                                    (reset! result-atm resp))
+                         :error-handler (fn [{:keys [status status-text]}]
+                                          (log/info (str "CLJS-AJAX error: status = " status " status-text= " status-text))
+                                          (reset! result-atm :failure!))
+                         :timeout 3000})]
+              (log/info "'***$read(graph-query)' returns " @result-atm)
+              @result-atm))
+
+
+#_(defn tryme [] ; Ancient promesa doesn't have reject etc. This doesn't set result-atm and doesn't await in the sense that the ****$read log happens immediately.
+  (let [result-atm (atom nil)] ;<========================
+    (async
+     (await (p/promise (GET "/api/graph-query"
+                          {:params test-obj
+                           :handler (fn [resp]
+                                      (log/info (str "CLJS-AJAX returns:" resp))
+                                      (reset! result-atm resp))
+                           :error-handler (fn [{:keys [status status-text]}]
+                                            (log/info (str "CLJS-AJAX error: status = " status " status-text= " status-text))
+                                            (reset! result-atm :failure!))
+                           :timeout 3000})))
+     (log/info "'***$read(graph-query)' returns " @result-atm)
+     @result-atm)))
+
+#_(defn tryme [] ;; go-loop sets atom. Doesn't await.
+  (let [ch (chan 3)]
+    (try
+      (GET "/api/graph-query" ; ToDo: Need localhost:3000 (exerciser) here?
+           {:params test-obj
+            :handler (fn [resp]
+                       (log/info (str "CLJS-AJAX returns:" resp))
+                       (go (>! ch resp)))
+            :error-handler (fn [{:keys [status status-text]}]
+                             (log/info (str "CLJS-AJAX error: status = " status " status-text= " status-text))
+                             (close! ch))
+            :timeout 3000})
+      (let [res (go-loop []
+                  (<! (timeout 3000))
+                  (if-let [res (<! ch)]
+                    (do (reset! result-atm res)
+                        (log/info "'***$read(graph-query)' returns " @result-atm)
+                        (close! ch))
+                    (recur)))]
+        (reset! diag res)
+        res)
+      (finally
+        (log/info "Clean-up")))))

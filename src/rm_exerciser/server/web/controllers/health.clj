@@ -8,7 +8,6 @@
 (defn healthcheck!
   [_req]
   (log/info "=============== Doing the health check! ===================")
-  (Thread/sleep 2000)
   (http-response/ok
     {:time     (str (Date. (System/currentTimeMillis)))
      :up-since (str (Date. (.getStartTime (java.lang.management.ManagementFactory/getRuntimeMXBean))))
