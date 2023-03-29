@@ -7,11 +7,11 @@
 
 (declare elena-schemas)
 
-;;; ($read [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
+;;; ($get [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
 (def rm-examples
   [{:name "2023-03-29, (1) : JSONata-like"
     :code
-    "// Ordinary JSONata-like expressions: get the names of the two schema in the LHS window:
+    "// Ordinary JSONata-like expressions: get the names of the two schema in the LHS pane:
 
 [$s1, $s2].`schema/name`"
     :data elena-schemas}
@@ -28,7 +28,7 @@
    {:name "2023-03-29, (3): Simple query, complicated schema"
     :code
     "(
-  // Small bug in the exerciser (because it combines data from the LHS window):
+  // Small bug in the exerciser (because it combines data from the LHS pane):
   // currently comments have to be inside the open paren.
   // Here we'll make a 'database' by putting $s1 and $s2 in a vector.
   // We could also just call the query on either $s1 or $s2, of course,
@@ -57,24 +57,24 @@
   // so the are represented by a unique integer (entity IDs).
   // They aren't too interesting; just used to navigate through the nested structure.
   // Note that the entity ID are small numbers because we aren't running RM in the server.
-  // The only entities we know about are the ones in the LHS window.
+  // The only entities we know about are the ones in the LHS pane.
 
  $qf := query{[?x :model/elementDef ?ed]};
  $qf($s1)
 )"
     :data elena-schemas}
 
-   {:name "2023-03-29, (*): $read (next time!)"
+   {:name "2023-03-29, (*): $get (next time!)"
     :code
     "(
-  // I really didn't want to have all that data in the LHS today.
-  // I wanted to call $read with a graph query, like this.
+  // I really didn't want to have all that data in the LHS pane today.
+  // I wanted to call $get with a graph query, like this.
   // The following DOES NOT WORK (today).
 
- $schemaNames := $read([['list/id', 'ccts/message-schema'], ['schema/name']]); // How I might get the strings below.
+ $schemaNames := $get([['list/id', 'ccts/message-schema'], ['schema/name']]); // How I might get the strings below.
 
- $db := [$read([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_1'],  ['schema/content']]),
-         $read([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_2'],  ['schema/content']])];
+ $db := [$get([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_1'],  ['schema/content']]),
+         $get([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_2'],  ['schema/content']])];
 
  $qf := query{[?x :schema/name ?name]};
  $qf($db)
@@ -86,7 +86,6 @@
   // We'll start working towards something useful with the two schema.
   // In the next few examples, we'll discover how they differ.
   // Let's start by listing  all the element names in each schema.
-  // ToDo: Fix pretty printing.
 
   $qf := query{[?x :element/name ?name]};
 
@@ -99,26 +98,58 @@
     :code
     "(
   // Let's find the children of an element.
-  // In the schema design, I tried to give things meaningful names (of course CCT data I didn't change).
+  // In the schema design, I tried to give things meaningful names
+  // (of course CCT names didn't change).
   // 'model/sequence' is supposed to be the general notion of a sequence of things.
-  //
-  // ToDo: Print names first in data???
+  // There are probably a few patterns in the schema data for getting parent/child relationships.
+  // For this data, however, there is only one pattern;
+  // it starts with :model/sequence and ends with :element/name.
+  // We could use datalog rules to catch pattern... it is on my ToDo list.
+  // With this pattern with might just do $query{(parentChild ?parent ?child)}.
 
   $qf := query{[?x :element/name ?parent]
-               [?x :model/sequence ?seq]
-               [?seq :model/elementDef ?def]
-               [?def :element/name ?child]};
+               [?x :element/complexType ?cplx1]
+               [?cplx1 :model/sequence ?def]      // The pattern 'starts over again'.
+               [?def   :model/elementDef ?cplx2]
+               [?cplx2 :element/name ?child]};
 
   {'schema 1': $qf($s1),
    'schema 2': $qf($s2)}
 )"
     :data elena-schemas}
 
+   {:name "2023-03-29, (7): Roots"
+    :code
+    "(
+  // The two lists we generated in (6) each have one less element than the lists
+  // we generated in (5), where we were just pulling out :element/name, wherever it occurs.
+  // Of course this is because root elements don't have parents.
+  // I suppose there are two patterns in the schema for picking off roots:
+  // (1) :schema/content ->                    :model/elementDef -> :element/name.
+  // (2) :schema/content -> :model/sequence -> :model/elementDef -> :element/name.
+
+  $qf1 := query{[?c :schema/content ?e]
+                [?e :model/elementDef ?d]
+                [?d :element/name ?name]};
+
+  $qf2 := query{[?c :schema/content ?e]
+                [?e :model/sequence ?s]
+                [?s :model/elementDef ?d]
+                [?d :element/name ?name]};
+
+
+  {'pattern 1': {'schema 1': {'roots': $qf1($s1)},
+                 'schema 2': {'roots': $qf1($s2)}},
+   'pattern 2': {'schema 1': {'roots': $qf2($s1)},
+                 'schema 2': {'roots': $qf2($s2)}}};
+)"
+    :data elena-schemas}
+
+
 
 
    {:name "Schema from server"
-    :code "$read([['schema/name', 'urn:oagis-10.8.4:Nouns:Invoice'],
-       ['schema-object']])"}
+    :code "$get([['schema/name', 'urn:oagis-10.8.4:Nouns:Invoice'], ['schema-object']])"}
 
    {:name "2 Databases"
     :code
