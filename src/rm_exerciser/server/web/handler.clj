@@ -10,11 +10,16 @@
    [reitit.swagger-ui :as swagger-ui]
    [taoensso.timbre :as log]))
 
+(defn fix-routes
+  "The way routes are provided by page-routes and api-routes is not the way ring-handlers wants them."
+  [r]
+  (into (-> r butlast vec) (-> r last)))
+
 (defn handler-map-init [& {:keys [profile] :or {profile :dev}}]
   (let [base-config (-> "system.edn" io/resource slurp read-string profile)
-        all-routes (conj page-routes api-routes)]
+        all-routes [(fix-routes page-routes) (fix-routes api-routes)]]
     {:handler/ring (ring/ring-handler
-                    (ring/router api-routes)
+                    (ring/router all-routes)
                     (ring/routes
                      (ring/create-resource-handler {:path "/"})
                      (swagger-ui/create-swagger-ui-handler {:path "/api" :url "/api/swagger.json"}) ; ToDo: make base-config in edn so you can get these.
@@ -27,7 +32,7 @@
                        (constantly {:status 406, :body "Not acceptable"})}))
                     {:middleware [(middleware/wrap-base (:handler/ring base-config))]})
      :router/routes all-routes
-     #_:router/core #_(ring/router ["" {} all-routes])}))
+     :router/core (ring/router all-routes)}))
 
 (defstate handler-map
   :start (handler-map-init))

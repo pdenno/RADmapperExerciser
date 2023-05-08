@@ -21,7 +21,7 @@
 (defn stop-server [& {:keys [profile] :or {profile :dev}}]
   (.stop @system)
   (reset! system nil)
-  (log/info "\n-=[ has shut down successfully]=-")
+  (log/info "Server has shut down successfully.")
   (when (= profile :prod) (shutdown-agents)))
 
 (defn start [handler {:keys [port] :as opts}]
