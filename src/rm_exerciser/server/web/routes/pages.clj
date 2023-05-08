@@ -1,13 +1,12 @@
 (ns rm-exerciser.server.web.routes.pages
   (:require
-    [rm-exerciser.server.web.middleware.exception :as exception]
-    [rm-exerciser.server.web.pages.layout :as layout]
-    [integrant.core :as ig]
-    [reitit.ring.middleware.muuntaja :as muuntaja]
-    [reitit.ring.middleware.parameters :as parameters]
-    [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
-    [rm-exerciser.server.web.routes.utils :as utils]
-    [rm-exerciser.server.web.controllers.rm-exerciser :as rm-exerciser]))
+   [mount.core :as mount :refer [defstate]]
+   [rm-exerciser.server.web.middleware.exception :as exception]
+   [rm-exerciser.server.web.pages.layout :as layout]
+   [reitit.ring.middleware.muuntaja :as muuntaja]
+   [reitit.ring.middleware.parameters :as parameters]
+   [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
+   [taoensso.timbre :as log]))
 
 (defn wrap-page-defaults []
   (let [error-page (layout/error-page
@@ -16,15 +15,12 @@
     #(wrap-anti-forgery % {:error-response error-page})))
 
 (defn home [{:keys [flash] :as request}]
+  (log/info "Request for home.html")
   (layout/render request "home.html" {:errors (:errors flash)}))
 
-(defn home-preload [{:keys [flash] :as request}]
-  (layout/render request "home.html" {:errors (:errors flash)}))
-
-(defn page-routes [_opts]
+(defn page-route-vec [_opts]
   [["/" {:get home}]
-   ["/example" {:get home-preload}]
-   #_["/save-message" {:post rm-exerciser/save-message!}]])
+   ["/index.html" {:get home}]])
 
 (defn route-data [opts]
   (merge
@@ -39,11 +35,9 @@
      ;; exception handling
      exception/wrap-exception]}))
 
-(derive :reitit.routes/pages :reitit/routes)
-
-(defmethod ig/init-key :reitit.routes/pages
-  [_ {:keys [base-path]
-      :or   {base-path ""}
-      :as   opts}]
+(defn page-routes-init []
   (layout/init-selmer!)
-  [base-path (route-data opts) (page-routes opts)])
+  ["" (route-data {}) (page-route-vec {})])
+
+(defstate page-routes
+  :start  (page-routes-init))

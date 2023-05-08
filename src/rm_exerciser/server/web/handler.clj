@@ -1,34 +1,33 @@
 (ns rm-exerciser.server.web.handler
   (:require
-    [rm-exerciser.server.web.middleware.core :as middleware]
-    [integrant.core :as ig]
-    [reitit.ring :as ring]
-    [reitit.swagger-ui :as swagger-ui]))
+   [clojure.java.io :as io]
+   [mount.core :as mount :refer [defstate]]
+   [rm-exerciser.server.util :refer [util-state]] ; for mount.
+   [rm-exerciser.server.web.middleware.core :as middleware]
+   [rm-exerciser.server.web.routes.api   :refer [api-routes]]
+   [rm-exerciser.server.web.routes.pages :refer [page-routes]]
+   [reitit.ring :as ring]
+   [reitit.swagger-ui :as swagger-ui]
+   [taoensso.timbre :as log]))
 
-;;; This gets run at (user/my-reset).
-(defmethod ig/init-key :handler/ring
-  [_ {:keys [router api-path] :as opts}]
-  (println "ig/init-key :handler/ring, api-path = " api-path)
-  (ring/ring-handler
-    router
-    (ring/routes
-      (ring/create-resource-handler {:path "/"})
-      (when (some? api-path)
-        (swagger-ui/create-swagger-ui-handler {:path api-path
-                                               :url  (str api-path "/swagger.json")}))
-      (ring/create-default-handler
-        {:not-found
-         (constantly {:status 404, :body "Page not found"})
-         :method-not-allowed
-         (constantly {:status 405, :body "Not allowed"})
-         :not-acceptable
-         (constantly {:status 406, :body "Not acceptable"})}))
-    {:middleware [(middleware/wrap-base opts)]}))
+(defn handler-map-init [& {:keys [profile] :or {profile :dev}}]
+  (let [base-config (-> "system.edn" io/resource slurp read-string profile)
+        all-routes (conj page-routes api-routes)]
+    {:handler/ring (ring/ring-handler
+                    (ring/router api-routes)
+                    (ring/routes
+                     (ring/create-resource-handler {:path "/"})
+                     (swagger-ui/create-swagger-ui-handler {:path "/api" :url "/api/swagger.json"}) ; ToDo: make base-config in edn so you can get these.
+                     (ring/create-default-handler
+                      {:not-found
+                       (constantly {:status 404, :body "Page not found"})
+                       :method-not-allowed
+                       (constantly {:status 405, :body "Not allowed"})
+                       :not-acceptable
+                       (constantly {:status 406, :body "Not acceptable"})}))
+                    {:middleware [(middleware/wrap-base (:handler/ring base-config))]})
+     :router/routes all-routes
+     #_:router/core #_(ring/router ["" {} all-routes])}))
 
-(defmethod ig/init-key :router/routes
-  [_ {:keys [routes]}]
-  (apply conj [] routes))
-
-(defmethod ig/init-key :router/core
-  [_ {:keys [routes] :as opts}]
-  (ring/router ["" opts routes]))
+(defstate handler-map
+  :start (handler-map-init))

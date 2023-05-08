@@ -1,14 +1,14 @@
 (ns rm-exerciser.server.web.controllers.rm-exerciser
   (:require
    [clojure.string        :refer [split]]
-   [clojure.tools.logging :as log]
    [clojure.walk          :as walk :refer [keywordize-keys]]
    [rad-mapper.evaluate   :as ev]
    [schema-db.db-util     :as du]
    [schema-db.resolvers   :refer [pathom-resolve]]
    [rm-exerciser.server.example-db :as examp]
    [rm-exerciser.server.web.routes.utils :as utils]
-   [ring.util.http-response :as http-response])
+   [ring.util.http-response :as http-response]
+   [taoensso.timbre :as log])
   (:import
     [java.util Date]))
 

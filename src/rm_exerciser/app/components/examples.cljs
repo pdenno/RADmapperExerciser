@@ -9,28 +9,32 @@
 
 ;;; ($get [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
 (def rm-examples
-  [{:name "2023-03-29, (1) : JSONata-like"
+  [{:name "2023-04-19, (0) : Simple get"
+    :code "( $schema := $get([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_1'], ['schema/content']]);
+           $schema )"}
+
+   {:name "2023-04-19, (1) : JSONata-like"
     :code
     "// Ordinary JSONata-like expressions: get the names of the two schema in the LHS pane:
 
 [$s1, $s2].`schema/name`"
     :data elena-schemas}
 
-   {:name "2023-03-29, (2) : Simplest query"
+   {:name "2023-04-19, (2) : Simplest query"
     :code
 "(
-  $s2 := {'element/name' : 'foo'};
+  $x := {'element/name' : 'foo'};
   $qf := query{[?x :element/name ?name]};
-  $qf($s2)
+  $qf($x)
 )"
     :data elena-schemas}
 
-   {:name "2023-03-29, (3): Simple query, complicated schema"
+   {:name "2023-04-19, (3): Simple query, complicated schema"
     :code
     "(
   // Small bug in the exerciser (because it combines data from the LHS pane):
   // currently comments have to be inside the open paren.
-  // Here we'll make a 'database' by putting $s1 and $s2 in a vector.
+  // Here we put $s1 and $s2 into a vector, $db, so we can work on them together.
   // We could also just call the query on either $s1 or $s2, of course,
   // or don't create the $db and just call $qf with [$s1, $s2].
 
@@ -40,7 +44,7 @@
 )"
     :data elena-schemas}
 
-   {:name "2023-03-29, (*): (aside) Query defines a function."
+   {:name "2023-04-19, (*): (aside) Query defines a function."
     :code
     "(
   // Remember: query and express are function defining.
@@ -49,7 +53,7 @@
   query{[?x :model/elementDef ?ed]}
 )"}
 
-   {:name "2023-03-29, (4):  query :model/elementDef"
+   {:name "2023-04-19, (4):  query :model/elementDef"
     :code
     "(
   // This example queries for all the element definitions.
@@ -64,7 +68,7 @@
 )"
     :data elena-schemas}
 
-   {:name "2023-03-29, (*): $get (next time!)"
+   {:name "2023-04-19, (*): $get (next time!)"
     :code
     "(
   // I really didn't want to have all that data in the LHS pane today.
@@ -80,7 +84,7 @@
  $qf($db)
 )"}
 
-   {:name "2023-03-29, (5): Towards goal: query :element/name"
+   {:name "2023-04-19, (5): Towards goal: query :element/name"
     :code
     "(
   // We'll start working towards something useful with the two schema.
@@ -94,7 +98,7 @@
 )"
     :data elena-schemas}
 
-   {:name "2023-03-29, (6): Child elements"
+   {:name "2023-04-19, (6): Child elements"
     :code
     "(
   // Let's find the children of an element.
@@ -118,7 +122,7 @@
 )"
     :data elena-schemas}
 
-   {:name "2023-03-29, (7): Roots"
+   {:name "2023-04-19, (7): Roots"
     :code
     "(
   // The two lists we generated in (6) each have one less element than the lists
@@ -128,11 +132,11 @@
   // (1) :schema/content ->                    :model/elementDef -> :element/name.
   // (2) :schema/content -> :model/sequence -> :model/elementDef -> :element/name.
 
-  $qf1 := query{[?c :schema/content ?e]
+  $qf1 := query{[?c :schema/content ?e]      // pattern 1
                 [?e :model/elementDef ?d]
                 [?d :element/name ?name]};
 
-  $qf2 := query{[?c :schema/content ?e]
+  $qf2 := query{[?c :schema/content ?e]      // pattern 2
                 [?e :model/sequence ?s]
                 [?s :model/elementDef ?d]
                 [?d :element/name ?name]};
@@ -145,7 +149,68 @@
 )"
     :data elena-schemas}
 
+   {:name "2023-04-19, (8): Nested structures"
+    :code
+    "(
+  // The two lists we generated in (6) each have one less element than the lists
+  // we generated in (5), where we were just pulling out :element/name, wherever it occurs.
+  // Of course this is because root elements don't have parents.
+  // I suppose there are two patterns in the schema for picking off roots:
+  // (1) :schema/content ->                    :model/elementDef -> :element/name.
+  // (2) :schema/content -> :model/sequence -> :model/elementDef -> :element/name.
 
+  $qfRoots := query{[?c :schema/content ?e]      // pattern 1
+                    [?e :model/elementDef ?d]
+                    [?d :element/name ?name]};
+
+    //ToDo: $roots1 := $qfRoots($s1).`?name`;
+    //ToDo: $roots2 := $qfRoots($s2).`?name`;
+    //ToDo: $roots := [$roots1, roots2];
+    $roots := [['ProcessInvoice'], ['ProcessInvoice']];
+
+
+)"
+    :data elena-schemas}
+
+   {:name "2023-04-19, (9): Shape and $semMatch"
+    :code
+   "(
+  $schema1 := $get([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_1'], ['schema/content']]);
+  $schema2 := $get([['schema/name', 'urn:oagi-10.unknown:elena.2023-02-09.ProcessInvoice-BC_2'], ['schema/content']]);
+
+  $pcQuery := query{[?x     :element/name        ?parent] // pc = 'parent/child'
+                    [?x     :element/complexType ?cplx1]
+                    [?cplx1 :model/sequence      ?def]
+                    [?def   :model/elementDef    ?cplx2]
+                    [?cplx2 :element/name        ?child]};
+
+  $rootQuery := query{[?c :schema/content   ?e]
+                      [?e :model/elementDef ?d]
+                      [?d :element/name     ?name]};
+
+  // This function just gets the children for a parent.
+  $children := function($spc, $p) { $spc[?parent = $p].?child };
+
+  // This function calls itself recursively to build the schema shape, starting from the root.
+  $shape := function($p, $spc) { $reduce($children($spc, $p),
+                                         function($tree, $c) // Update the tree.
+                                             { $update($tree,
+                                                       $p,
+                                                       function($x) { $assoc($x, $c, $lookup($shape($c, $spc), $c) or '<data>')}) },
+                                         {})};
+
+  $schema1PC    := $pcQuery($schema1);     // Call the two queries with the two schema.
+  $schema2PC    := $pcQuery($schema2);     // The first two return binding sets for {?parent x ?child y}
+  $schema1Roots := $rootQuery($schema1);   // The last two return binding sets for {?name} (of a root).
+  $schema2Roots := $rootQuery($schema2);
+
+  {'shape1' : $shape($schema1Roots.?name[0], $schema1PC),
+   'shape2' : $shape($schema2Roots.?name[0], $schema2PC)}
+
+  // $semMatch($shape($schema1Roots.?name[0], $schema1PC), // [0] here is cheating a bit; there could be multiple roots.
+  //           $shape($schema2Roots.?name[0], $schema2PC))
+
+)"}
 
 
    {:name "Schema from server"

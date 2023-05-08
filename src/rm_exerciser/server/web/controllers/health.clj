@@ -1,7 +1,7 @@
 (ns rm-exerciser.server.web.controllers.health
   (:require
-   [clojure.tools.logging :as log]
-    [ring.util.http-response :as http-response])
+   [ring.util.http-response :as http-response]
+   [taoensso.timbre :as log])
   (:import
     [java.util Date]))
 

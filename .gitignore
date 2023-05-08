@@ -10,7 +10,7 @@ log/
 node_modules/
 modules/
 public/js/
-resources/migrations/
+resources/databases/
 resources/public/js/
 play/
 

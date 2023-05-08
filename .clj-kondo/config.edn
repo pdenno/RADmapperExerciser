@@ -1,19 +1,13 @@
 ;;; https://github.com/borkdude/clj-kondo/blob/master/doc/config.md
-{:lint-as {applied-science.js-interop/defn clojure.core/defn
-
-           #_#_rad-mapper.builtins/defn*      clojure.core/defn
-           rad-mapper.builtins/step->     clojure.core/defmacro
-           rad-mapper.builtins/defn*      clojure.core/defn
-           rad-mapper.builtins/defn$      clojure.core/defn
-           rad-mapper.parse/defparse      clojure.core/defn
-           rad-mapper.rewrite/defrewrite  clojure.core/defn
-
-           helix.core/defnc               clojure.core/defn
-           helix.core/use-effect          clojure.core/defn
-           reagent.core/with-let          clojure.core/let
+{:project-root-uri "file:///home/msid/pdenno/Documents/git/exerciser"
+ :lint-as {applied-science.js-interop/defn clojure.core/defn
 
            com.wsscode.pathom3.connect.operation/defmutation clojure.core/defn
            com.wsscode.pathom3.connect.operation/defresolver clojure.core/defn
            com.wsscode.pathom3.plugin/defplugin              clojure.core/def
            com.wsscode.promesa.macros/clet                   clojure.core/let
-           com.wsscode.promesa.macros/ctry                   clojure.core/try}}
+           com.wsscode.promesa.macros/ctry                   clojure.core/try
+
+           mount.core/defstate                               clj-kondo.lint-as/def-catch-all
+           helix.core/defnc                                  clojure.core/defn
+           helix.core/use-effect                             clojure.core/defn}}

@@ -1,7 +1,7 @@
 (ns rm-exerciser.server.web.middleware.exception
   (:require
-    [clojure.tools.logging :as log]
-    [reitit.ring.middleware.exception :as exception]))
+   [reitit.ring.middleware.exception :as exception]
+   [taoensso.timbre :as log]))
 
 (defn handler [message status exception request]
   (when (>= status 500)

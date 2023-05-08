@@ -1,4 +1,4 @@
-{:deps true #_{:aliases [:dev]} ; True for Docker build ??
+{:deps true
  :nrepl {:port 7002}
  :http  {:port 9631}
  :builds

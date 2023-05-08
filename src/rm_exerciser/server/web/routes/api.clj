@@ -1,10 +1,10 @@
 (ns rm-exerciser.server.web.routes.api
   (:require
+   [mount.core :as mount :refer [defstate]]
    [rm-exerciser.server.web.controllers.health :as health]
    [rm-exerciser.server.web.controllers.rm-exerciser :as rm]
    [rm-exerciser.server.web.middleware.exception :as exception]
    [rm-exerciser.server.web.middleware.formats :as formats]
-   [integrant.core :as ig]
    [reitit.coercion.malli :as malli]
    [reitit.ring.coercion :as coercion]
    [reitit.ring.middleware.muuntaja :as muuntaja]
@@ -12,7 +12,7 @@
    [reitit.swagger :as swagger]))
 
 ;; Routes. See https://cljdoc.org/d/metosin/reitit/0.5.5/doc/ring/swagger-support
-(defn api-routes
+(defn api-routes-vec
   "Define API routes (as opposed to page routes defined elsewhere).
    The things are examined by the swagger 2.0 API. Thus if I define a route
    here '/process-rm/:code', it will show up in swagger as /api/process-rm/{code}."
@@ -65,11 +65,8 @@
                   ;; exception handling
                   exception/wrap-exception]}))
 
-(derive :reitit.routes/api :reitit/routes)
+(defn api-routes-init []
+  ["/api" (route-data {}) (api-routes-vec {})])
 
-;;; ToDo: How this works, how base-path is resolved, is a mystery.
-(defmethod ig/init-key :reitit.routes/api
-  [_ {:keys [base-path]
-      :or   {base-path ""}
-      :as   opts}]
-  [base-path (route-data opts) (api-routes opts)])
+(defstate api-routes
+  :start (api-routes-init))

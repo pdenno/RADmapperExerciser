@@ -11,6 +11,7 @@
    ["@mui/material/Stack$default" :as Stack]
    ["@mui/material/styles" :as styles]
    ["@mui/material/Typography$default" :as Typography]
+   [promesa.core :as p]
    [rm-exerciser.app.components.editor :as editor :refer [Editor set-editor-text get-editor-text SelectExample]]
    [rm-exerciser.app.components.examples :as examples :refer [rm-examples]]
    [rm-exerciser.app.components.share :as share :refer [ShareUpDown ShareLeftRight]]
@@ -60,19 +61,32 @@
   "ev/processRM the source, returning a string that is either the result of processing
    or the error string that processing produced."
   [source]
-  (when-some [code (not-empty (str/trim source))]
-    (let [user-data (get-user-data)#_(get-editor-text "data")]
-      ;;(log/info "******* For RM eval: CODE = \n" code)
-      ;;(log/info "******* For RM eval: DATA = \n" user-data)
-      (reset! diag {:code code :data user-data})
-      (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
-                          (str ?r)
-                          {:success ?r})
-                        (catch js/Error e {:failure (str "Error: " (.-message e))}))]
-        (log/info "Returned from evaluation: result = " result)
-        result))))
+  (log/info "source = " source)
+  ;(when-some [code (not-empty (str/trim source))]
+  (let [code source
+        user-data (get-user-data)]
+    ;;(log/info "******* For RM eval: CODE = \n" code)
+    ;;(log/info "******* For RM eval: DATA = \n" user-data)
+    (reset! diag {:code code :data user-data})
+    (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
+                        (str ?r)
+                        {:success ?r})
+                      (catch js/Error e {:failure (str "Error: " (.-message e))}))]
+      (log/info "Returned from evaluation: result = " result)
+        result)))
 
 (j/defn eval-cell
+  "Run RADmapper on the string retrieved from the editor's state.
+   Apply the result to the argument function on-result, which was is the set-result function set up by hooks/use-state."
+  [on-result ^:js {:keys [state]}]
+  (as-> (.-doc state) ?res
+    (run-code ?res)
+    (do (log/info "?res = " ?res) ?res)
+    (if (p/promise ?res) (p/then ?res on-result) (on-result ?res))) ;; on-result is the set-result function from hooks/use-state.
+  true)          ;; This is run for its side-effect.
+
+
+#_(j/defn eval-cell
   "Run RADmapper on the string retrieved from the editor's state.
    Apply the result to the argument function on-result, which was is the set-result function set up by hooks/use-state."
   [on-result ^:js {:keys [state]}]
