@@ -11,7 +11,7 @@
    [taoensso.timbre :as log]))
 
 (defn fix-routes
-  "The way routes are provided by page-routes and api-routes is not the way ring-handlers wants them."
+  "The way routes are provided by page-routes and api-routes is not the way ring-handler wants them."
   [r]
   (into (-> r butlast vec) (-> r last)))
 

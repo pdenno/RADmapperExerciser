@@ -11,15 +11,15 @@
     [rad-mapper.evaluate]
     [schema-db.core] ; for mount
     [schema-db.db-util   :as du :refer [connect-atm]]
-    #?@(:clj [[lambdaisland.classpath.watch-deps :as watch-deps]      ;; hot loading for deps
-              [rm-exerciser.server.core :refer [server]] ; for mount
-              [rm-exerciser.server.web.handler]])  ; for mount, defines rm.server.config/config, and router stuff.
+    [lambdaisland.classpath.watch-deps :as watch-deps]      ;; hot loading for deps
+    [rm-exerciser.server.core :refer [server]] ; for mount
+    [rm-exerciser.server.web.handler]  ; for mount, defines rm.server.config/config, and router stuff.
     [taoensso.timbre :as log]))
 
 ;;; If you get stuck do: (clojure.tools.namespace.repl/refresh)
 
 ;; uncomment to enable hot loading for deps
-#?(:clj (watch-deps/start! {:aliases [:dev :test]}))
+(watch-deps/start! {:aliases [:dev :test]})
 
 (alter-var-root #'s/*explain-out* (constantly expound/printer))
 (add-tap (bound-fn* clojure.pprint/pprint))
@@ -48,14 +48,12 @@
   (tools-ns/refresh :after 'user/start))
 
 ;;; Useful for diagnosis.
-#?(:clj
 (defn try-start []
   (mount/start #'rm-exerciser.server.core/server)
   (mount/start #'rm-exerciser.server.web.routes.pages/page-routes)
-  (mount/start #'rm-exerciser.server.web.routes.api/api-routes)))
+  (mount/start #'rm-exerciser.server.web.routes.api/api-routes))
 
-#?(:clj
 (defn try-stop []
   (mount/stop #'rm-exerciser.server.web.routes.pages/page-routes)
   (mount/stop #'rm-exerciser.server.web.routes.api/api-routes)
-  (mount/stop #'rm-exerciser.server.core/server)))
+  (mount/stop #'rm-exerciser.server.core/server))

@@ -48,7 +48,13 @@
     {:coercion   malli/coercion
      :muuntaja   formats/instance
      :swagger    {:id ::api}
-     :middleware [;; query-params & form-params
+     :middleware #_[;; query-params & form-params
+                  parameters/parameters-middleware
+                  ;; encoding response body
+                  ;muuntaja/format-response-middleware
+                  ;; exception handling
+                  exception/wrap-exception]
+                 [;; query-params & form-params
                   parameters/parameters-middleware
                   ;; content-negotiation
                   muuntaja/format-negotiate-middleware

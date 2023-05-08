@@ -27,6 +27,8 @@
 (def svr-prefix "http://localhost:3000")
 (declare get-user-data get-user-code)
 
+;(util/config-log :info) This was never needed before!
+
 (def diag (atom {}))
 
 (def exerciser-theme
@@ -67,7 +69,7 @@
         user-data (get-user-data)]
     ;;(log/info "******* For RM eval: CODE = \n" code)
     ;;(log/info "******* For RM eval: DATA = \n" user-data)
-    (reset! diag {:code code :data user-data})
+    ;(reset! diag {:code code :data user-data})
     (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
                         (str ?r)
                         {:success ?r})
@@ -79,12 +81,16 @@
   "Run RADmapper on the string retrieved from the editor's state.
    Apply the result to the argument function on-result, which was is the set-result function set up by hooks/use-state."
   [on-result ^:js {:keys [state]}]
-  (as-> (.-doc state) ?res
+  (reset! diag {:code (-> state .-doc str)})
+  (as-> state ?res
+    (.-doc ?res)
+    (str ?res)
     (run-code ?res)
-    (do (log/info "?res = " ?res) ?res)
-    (if (p/promise ?res) (p/then ?res on-result) (on-result ?res))) ;; on-result is the set-result function from hooks/use-state.
+    (if (p/promise? (:success ?res))
+      (p/then (:success ?res) on-result)
+      (on-result ?res)) ;; on-result is the set-result function from hooks/use-state.
+    (swap! diag #(assoc % :res ?res)))
   true)          ;; This is run for its side-effect.
-
 
 #_(j/defn eval-cell
   "Run RADmapper on the string retrieved from the editor's state.
