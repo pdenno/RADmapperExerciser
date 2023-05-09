@@ -1,10 +1,8 @@
 (ns rm-exerciser.server.web.controllers.rm-exerciser
   (:require
-   [clojure.string        :refer [split]]
    [clojure.walk          :as walk :refer [keywordize-keys]]
    [rad-mapper.evaluate   :as ev]
-   [schema-db.db-util     :as du]
-   [schema-db.resolvers   :refer [pathom-resolve]]
+   [rad-mapper.builtin    :as bi]
    [rm-exerciser.server.example-db :as examp]
    [rm-exerciser.server.web.routes.utils :as utils]
    [ring.util.http-response :as http-response]
@@ -70,8 +68,9 @@
       (-> (http-response/found "/")
           (assoc :flash {:errors {:unknown (.getMessage e)}})))))
 
-;;; ($read [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
+;;; (bi/$get [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
 ;;;  = (pathom-resolve {:schema/name "urn:oagis-10.8.4:Nouns:Invoice"} [:sdb/schema-object])
+;;; (But we don't care because we can call $get.)
 (defn graph-query
   "Make a graph query (currently only to data managed by this server).
    Query parameters:
@@ -80,18 +79,11 @@
      - request-objs : a string of elements separated by '|' that will be keywordized to the 'sdb' ns,
                       for example, 'foo|bar' ==> [:sdb/foo :sdb/bar]."
   [request]
-  (log/info "Call to graph-query")
-  (let [{:keys [ident-type ident-val request-objs] :as req}
-        (-> request
-            :query-params
-            keywordize-keys
-            (update :ident-type keyword)
-            (update :request-objs #(as-> % ?x
-                                     (split ?x #"\|")
-                                     (mapv (fn [x] (keyword "sdb" x)) ?x))))] ; ToDo: check for '/' in x.
-    (log/info "****/api/graph-query: " req)
+  (let [{:keys [ident-type ident-val request-objs]} (-> request :query-params keywordize-keys)
+        request-objs (if (coll? request-objs) (vec request-objs) [request-objs])]
+    (log/info "Call to graph-query: " [[ident-type ident-val] request-objs])
     (if (and ident-type ident-val request-objs)
-      (let [res (pathom-resolve {ident-type ident-val} request-objs)]
+      (let [res (bi/$get [[ident-type ident-val] request-objs])]
         (reset! diag {:res res})
-        (http-response/ok {:graph-query-response res}))
-      (http-response/ok {:body "Missing query args."}))))
+        (http-response/ok res))
+      (http-response/ok {:failure "Missing query args."}))))

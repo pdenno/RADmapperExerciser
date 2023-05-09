@@ -2,12 +2,11 @@
 
  :deps    {com.taoensso/timbre             {:mvn/version "RELEASE"}
            ;; Routing/Ring
-           metosin/reitit {:mvn/version "0.6.0"}
-           metosin/ring-http-response {:mvn/version "0.9.3"}
-           ring/ring-core {:mvn/version "1.10.0"}
-           ring/ring-defaults {:mvn/version "0.3.4"}
-
-           ;; Data coercion
+           metosin/reitit                  {:mvn/version "0.6.0"}
+           metosin/ring-http-response      {:mvn/version "0.9.3"}
+           ring/ring-core                  {:mvn/version "1.10.0"}
+           ring/ring-defaults              {:mvn/version "0.3.4"}
+           ring-cors/ring-cors             {:mvn/version "0.1.13"}
            metosin/muuntaja                {:mvn/version "0.6.8"} ; http encode/decode
 
            ;; Kit influenced
@@ -17,15 +16,11 @@
            luminus-transit/luminus-transit {:mvn/version "0.1.6" :exclusions [com.cognitect/transit-clj]}
 
            ;; heart of the app
-           cljs-ajax/cljs-ajax             {:mvn/version "0.8.4"}
-           funcool/promesa                 {:mvn/version "10.0.663"} ; 663 is mine 549 doesn't work.
-           com.github.pdenno/rad-mapper    {:mvn/version "1.0.228" ; For local build
+           com.github.pdenno/rad-mapper    {:mvn/version "1.0.230" ; For local build, the other is for docker.
                                             #_#_#_#_#_#_:git/tag "v1.0.186"
-                                            :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"         ; For docker
+                                            :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"
                                             :git/url "https://github.com/pdenno/RADmapper.git"}
-
-           io.replikativ/datahike          {:mvn/version "0.6.1538"} ; For saving examples
-           applied-science/js-interop      {:mvn/version "0.4.2"}}
+           io.replikativ/datahike          {:mvn/version "0.6.1538"}} ; For saving examples
 
  :aliases {:build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.9.3" :git/sha "e537cd1"
                                                                :git/url "https://github.com/clojure/tools.build.git"}
@@ -33,7 +28,7 @@
                                 weavejester/dependency {:mvn/version "0.2.1"}}
                    :ns-default build}
 
-           ;; shadow-cljs doesn't treat these as :extra-deps. This has to include everything needed
+           ;; shadow-cljs doesn't treat these as :extra-deps. This has to include everything needed for :deps {:aliases [:cljs]}.
            :cljs  {:extra-deps  {org.clojure/clojure            {:mvn/version "1.11.1"}
                                  org.clojure/clojurescript      {:mvn/version "1.11.60"}
                                  thheller/shadow-cljs           {:mvn/version "2.23.3"}
@@ -42,10 +37,7 @@
                                  lilactown/helix                 {:mvn/version "0.1.10"}
                                  cljs-ajax/cljs-ajax             {:mvn/version "0.8.4"}
                                  funcool/promesa                 {:mvn/version "10.0.663"} ; 663 is mine 549 doesn't work.
-                                 com.github.pdenno/rad-mapper    {:mvn/version "1.0.228" ; For local build
-                                                                  #_#_#_#_#_#_:git/tag "v1.0.186"
-                                                                  :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"         ; For docker
-                                                                  :git/url "https://github.com/pdenno/RADmapper.git"}
+                                 com.github.pdenno/rad-mapper    {:mvn/version "1.0.228"}
                                  applied-science/js-interop      {:mvn/version "0.4.2"}}}
 
             :dev  {:extra-deps {com.lambdaisland/classpath      {:mvn/version "0.4.44"}

@@ -9,9 +9,8 @@
     [expound.alpha :as expound]
     [mount.core :as mount]
     [rad-mapper.evaluate]
-    [schema-db.core] ; for mount
-    [schema-db.db-util   :as du :refer [connect-atm]]
     [lambdaisland.classpath.watch-deps :as watch-deps]      ;; hot loading for deps
+    [rad-mapper.resolvers :refer [schema-db-atm]] ; for mount
     [rm-exerciser.server.core :refer [server]] ; for mount
     [rm-exerciser.server.web.handler]  ; for mount, defines rm.server.config/config, and router stuff.
     [taoensso.timbre :as log]))

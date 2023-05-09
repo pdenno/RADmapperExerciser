@@ -21,17 +21,17 @@
 (defn stop-server [& {:keys [profile] :or {profile :dev}}]
   (.stop @system)
   (reset! system nil)
-  (log/info "Server has shut down successfully.")
+  ;(log/info "Server has shut down successfully.")
   (when (= profile :prod) (shutdown-agents)))
 
 (defn start [handler {:keys [port] :as opts}]
   ;(log/info "In start: handler = " (:handler/ring handler-map))
-  (log/info "In start: here is what undertow gets: " opts)
+  ;(log/info "In start: here is what undertow gets: " opts)
   (try
     (let [server (run-undertow handler opts)]
-      (log/info "server started on port" port)
-      (log/info "In start: handler = " handler)
-      (log/info "In start: server = " server)
+      ;(log/info "server started on port" port)
+      ;(log/info "In start: handler = " handler)
+      ;(log/info "In start: server = " server)
       server)
     (catch Throwable t
       (log/error t (str "server failed to start on port: " port)))))
@@ -46,12 +46,12 @@
         host (-> base-config :server/http :host)]
     (try (let [handler (atom (delay (:handler/ring handler-map)))
                server (start (fn [req] (@@handler req)) {:port port :host host})]
-           (log/info "Handler of opts (used to make server) = " (:handler/ring handler-map))
-           (log/info "Handler made from opts handler = " handler)
-           (log/info "Handler derefed twice = " @@handler)
-           (log/info "server made from @@handler = " server)
-           (log/info "In start-server: handler = " handler)
-           (log/info "In start-server: server = " server)
+           ;(log/info "Handler of opts (used to make server) = " (:handler/ring handler-map))
+           ;(log/info "Handler made from opts handler = " handler)
+           ;(log/info "Handler derefed twice = " @@handler)
+           ;(log/info "server made from @@handler = " server)
+           ;(log/info "In start-server: handler = " handler)
+           ;(log/info "In start-server: server = " server)
            (reset! system server)
            (log/info "Started server")
            {:handler handler

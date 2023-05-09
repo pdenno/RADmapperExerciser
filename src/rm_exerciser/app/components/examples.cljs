@@ -1,11 +1,9 @@
 (ns rm-exerciser.app.components.examples)
 
-(declare rm-examples)
+(declare rm-examples elena-schemas)
 
 (defn get-example [name]
   (some #(when (= name (:name %)) %) rm-examples))
-
-(declare elena-schemas)
 
 ;;; ($get [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
 (def rm-examples

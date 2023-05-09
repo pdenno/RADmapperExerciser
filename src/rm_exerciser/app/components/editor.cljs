@@ -19,8 +19,7 @@
    [helix.hooks :as hooks]
    [helix.dom :as d]
    ["react" :as react]
-   #_[shadow.cljs.modern :refer (defclass)]
-   #_[taoensso.timbre :as log :refer-macros [info debug log]]))
+   [taoensso.timbre :as log :refer-macros [info debug log]]))
 
 (def diag (atom nil))
 

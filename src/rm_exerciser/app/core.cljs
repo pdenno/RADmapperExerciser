@@ -1,5 +1,6 @@
 (ns rm-exerciser.app.core
   (:require
+   [clojure.pprint :refer [pprint]]
    [clojure.string :as str]
    [rad-mapper.evaluate :as ev]
    [applied-science.js-interop :as j]
@@ -27,7 +28,7 @@
 (def svr-prefix "http://localhost:3000")
 (declare get-user-data get-user-code)
 
-;(util/config-log :info) This was never needed before!
+(util/config-log :info) ; This was never needed before!
 
 (def diag (atom {}))
 
@@ -66,41 +67,29 @@
   (log/info "source = " source)
   ;(when-some [code (not-empty (str/trim source))]
   (let [code source
-        user-data (get-user-data)]
-    ;;(log/info "******* For RM eval: CODE = \n" code)
-    ;;(log/info "******* For RM eval: DATA = \n" user-data)
-    ;(reset! diag {:code code :data user-data})
-    (let [result (try (as-> (ev/processRM :ptag/exp code  {:pprint? true :user-data user-data}) ?r
-                        (str ?r)
-                        {:success ?r})
-                      (catch js/Error e {:failure (str "Error: " (.-message e))}))]
-      (log/info "Returned from evaluation: result = " result)
-        result)))
+        user-data (get-user-data)
+        _zippy (log/info "******* For RM eval: CODE = \n" code)
+        _zippy (log/info "******* For RM eval: DATA = \n" user-data)
+        result (try (ev/processRM :ptag/exp code  {:pprint? false :execute? true :sci? true :user-data user-data})
+                    (catch js/Error e {:failure (str "Error: " (.-message e))}))]
+    result))
 
 (j/defn eval-cell
   "Run RADmapper on the string retrieved from the editor's state.
    Apply the result to the argument function on-result, which was is the set-result function set up by hooks/use-state."
   [on-result ^:js {:keys [state]}]
-  (reset! diag {:code (-> state .-doc str)})
   (as-> state ?res
     (.-doc ?res)
     (str ?res)
     (run-code ?res)
-    (if (p/promise? (:success ?res))
-      (p/then (:success ?res) on-result)
-      (on-result ?res)) ;; on-result is the set-result function from hooks/use-state.
-    (swap! diag #(assoc % :res ?res)))
-  true)          ;; This is run for its side-effect.
-
-#_(j/defn eval-cell
-  "Run RADmapper on the string retrieved from the editor's state.
-   Apply the result to the argument function on-result, which was is the set-result function set up by hooks/use-state."
-  [on-result ^:js {:keys [state]}]
-  (-> (.-doc state)
-      str
-      run-code
-      on-result) ;; on-result is the set-result function from hooks/use-state.
-  true)          ;; This is run for its side-effect.
+    (do (swap! diag #(-> % (assoc :?res ?res) (assoc :promise? (p/promise? ?res)))) ?res)
+    (if (p/promise? ?res)
+      (-> ?res
+          (p/then  #(with-out-str (pprint %)))
+          (p/then  on-result)
+          (p/catch on-result))
+      (on-result ?res))) ;; on-result is the set-result function from hooks/use-state.
+  true)                  ;; This is run for its side-effect.
 
 (defn add-result-action
   "Return the keymap updated with the partial for :on-result, I think!" ;<===
@@ -115,7 +104,6 @@
   (when (map? (js->clj obj))
     (js->clj (or (j/get obj :props) (get obj "props")))))
 
-;;; These two should go away! <================================================================
 (defn get-user-data
   "Return the string content of the data editor."
   []
@@ -155,13 +143,13 @@
                   :on-stop-drag-dn (partial editor/resize-finish "result")}})
 
 (defnc Top [{:keys [rm-example width height]}]
-  (let [[result set-result] (hooks/use-state {:success "Ctrl-Enter above to execute."})
+  (let [[result set-result] (hooks/use-state "Ctrl-Enter above to execute.")
         banner-height 42
         useful-height (- height banner-height)
         data-editor-height (- useful-height banner-height 20) ; ToDo: 20 (a gap before the editor starts)
         code-editor-height (int (/ useful-height 2))
         result-editor-height (int (/ useful-height 2))]
-    (hooks/use-effect [result] (set-editor-text "result" (or (:success result) (:failure result) "failure!")))
+    (hooks/use-effect [result] (set-editor-text "result" (str result)))
     (hooks/use-effect :once ; Need to set :max-height of resizable editors after everything is created.
       (editor/resize-finish "code-editor" nil code-editor-height)
       (editor/resize-finish "data-editor" nil data-editor-height)
@@ -176,7 +164,7 @@
            :height banner-height}
           ($ Stack {:direction "row"}
              "RADmapper"
-             ($ Box {:minWidth (- width 320)}) ; I'm amazed this sorta works! The 350 depends on the width of "RADmapper".
+             ($ Box {:minWidth (- width 320)}) ; I'm amazed this sorta works! The 320 depends on the width of "RADmapper".
              ($ ButtonGroup
                 ($ SaveModal {:code-fn #(get-user-code) #_#(get-editor-text "code")
                               :data-fn #(get-user-data) #_#(get-editor-text "data")}))))
