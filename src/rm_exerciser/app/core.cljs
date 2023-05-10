@@ -65,14 +65,13 @@
    or the error string that processing produced."
   [source]
   (log/info "source = " source)
-  ;(when-some [code (not-empty (str/trim source))]
-  (let [code source
-        user-data (get-user-data)
-        _zippy (log/info "******* For RM eval: CODE = \n" code)
-        _zippy (log/info "******* For RM eval: DATA = \n" user-data)
-        result (try (ev/processRM :ptag/exp code  {:pprint? false :execute? true :sci? true :user-data user-data})
-                    (catch js/Error e {:failure (str "Error: " (.-message e))}))]
-    result))
+  (when-some [code (not-empty (str/trim source))]
+    (let [user-data (get-user-data)
+          _zippy (log/info "******* For RM eval: CODE = \n" code)
+          _zippy (log/info "******* For RM eval: DATA = \n" user-data)
+          result (try (ev/processRM :ptag/exp code  {:pprint? false :execute? true :sci? true :user-data user-data})
+                      (catch js/Error e {:failure (str "Error: " (.-message e))}))]
+      result)))
 
 (j/defn eval-cell
   "Run RADmapper on the string retrieved from the editor's state.
@@ -87,8 +86,8 @@
       (-> ?res
           (p/then  #(with-out-str (pprint %)))
           (p/then  on-result)
-          (p/catch on-result))
-      (on-result ?res))) ;; on-result is the set-result function from hooks/use-state.
+          (p/catch #(-> % str on-result)))
+      (-> ?res str on-result))) ;; on-result is the set-result function from hooks/use-state.
   true)                  ;; This is run for its side-effect.
 
 (defn add-result-action
@@ -147,9 +146,9 @@
         banner-height 42
         useful-height (- height banner-height)
         data-editor-height (- useful-height banner-height 20) ; ToDo: 20 (a gap before the editor starts)
-        code-editor-height (int (/ useful-height 2))
-        result-editor-height (int (/ useful-height 2))]
-    (hooks/use-effect [result] (set-editor-text "result" (str result)))
+        code-editor-height   (int (* useful-height 0.5))    ; <================================== Ignored?
+        result-editor-height (int (* useful-height 0.5))]   ; <================================== Ignored?
+    (hooks/use-effect [result] (set-editor-text "result" result))
     (hooks/use-effect :once ; Need to set :max-height of resizable editors after everything is created.
       (editor/resize-finish "code-editor" nil code-editor-height)
       (editor/resize-finish "data-editor" nil data-editor-height)
@@ -166,8 +165,8 @@
              "RADmapper"
              ($ Box {:minWidth (- width 320)}) ; I'm amazed this sorta works! The 320 depends on the width of "RADmapper".
              ($ ButtonGroup
-                ($ SaveModal {:code-fn #(get-user-code) #_#(get-editor-text "code")
-                              :data-fn #(get-user-data) #_#(get-editor-text "data")}))))
+                ($ SaveModal {:code-fn #(get-user-code)
+                              :data-fn #(get-user-data)}))))
        ($ ShareLeftRight
           {:left  ($ Stack {:direction "column" :spacing "10px"}
                      ($ SelectExample {:init-example (:name rm-example)})
@@ -185,7 +184,7 @@
                                      :text result})
                       :share-fns (:right-share top-share-fns)})
            :share-fns (:left-share top-share-fns)
-           :lf-pct 0.55
+           :lf-pct 0.10 #_0.55 ; <=================================
            :init-width width}))))
 
 (defnc app []
@@ -219,7 +218,7 @@
           {:theme exerciser-theme}
           ($ Top {:width  (:width  @carry-dims-atm)
                   :height (:height @carry-dims-atm)
-                  :rm-example (get rm-examples 0)}))))))
+                  :rm-example (get rm-examples 0)})))))) ; ToDo: Work required here to check whether it is called with an example UUID.
 
 (defonce root (react-dom/createRoot (js/document.getElementById "app")))
 
@@ -228,12 +227,3 @@
 
 (defn ^:export init []
   (mount-root))
-
-#_(defn get-style [dom]
-  (reduce (fn [m k]
-            (let [v (j/get dom (keyword k))]
-              (if-let [val (and (not= v "") v)]
-                (assoc m (keyword k) val)
-                m)))
-          {}
-          (->> (-> dom (j/get :style) js-keys js->clj) (filter string?))))

@@ -3,8 +3,13 @@
   (:require
    [clojure.java.io :as io]
    [mount.core :as mount :refer [defstate]]
-   [ring.adapter.undertow :refer [run-undertow]]
-   [rm-exerciser.server.web.handler :refer [handler-map]]
+   [mount-up.core :as mu]
+   [rad-mapper.evaluate] ; for mount
+   [rad-mapper.resolvers :refer [schema-db-atm]]          ; for mount
+   [rm-exerciser.server.web.handler]                      ; for mount
+   [rm-exerciser.server.web.handler :refer [handler-map]] ; for mount
+   [ring.adapter.undertow :refer [run-undertow]] ; either...
+   ;[ring.adapter.jetty :as jetty]                ; ...or
    [taoensso.timbre :as log])
   (:gen-class))
 
@@ -21,17 +26,13 @@
 (defn stop-server [& {:keys [profile] :or {profile :dev}}]
   (.stop @system)
   (reset! system nil)
-  ;(log/info "Server has shut down successfully.")
   (when (= profile :prod) (shutdown-agents)))
 
 (defn start [handler {:keys [port] :as opts}]
-  ;(log/info "In start: handler = " (:handler/ring handler-map))
-  ;(log/info "In start: here is what undertow gets: " opts)
   (try
-    (let [server (run-undertow handler opts)]
-      ;(log/info "server started on port" port)
-      ;(log/info "In start: handler = " handler)
-      ;(log/info "In start: server = " server)
+    ;; Options: https://github.com/luminus-framework/ring-undertow-adapter
+    (let [server (run-undertow handler opts)
+          #_(jetty/run-jetty handler {:port 3000, :join? false})]
       server)
     (catch Throwable t
       (log/error t (str "server failed to start on port: " port)))))
@@ -41,19 +42,14 @@
 ;;; handler = #function[kit.guestbook.core/eval24494/fn--24495/fn--24498]
 ;;; server  = #object[io.undertow.Undertow 0x7dbbdbb0 io.undertow.Undertow@7dbbdbb0]
 (defn start-server [& {:keys [profile] :or {profile :dev}}]
+  (mu/on-upndown :info mu/log :before)
   (let [base-config (-> "system.edn" io/resource slurp read-string profile)
         port (-> base-config :server/http :port)
         host (-> base-config :server/http :host)]
     (try (let [handler (atom (delay (:handler/ring handler-map)))
                server (start (fn [req] (@@handler req)) {:port port :host host})]
-           ;(log/info "Handler of opts (used to make server) = " (:handler/ring handler-map))
-           ;(log/info "Handler made from opts handler = " handler)
-           ;(log/info "Handler derefed twice = " @@handler)
-           ;(log/info "server made from @@handler = " server)
-           ;(log/info "In start-server: handler = " handler)
-           ;(log/info "In start-server: server = " server)
            (reset! system server)
-           (log/info "Started server")
+           (log/info "Started server (exerciser) at port" port)
            {:handler handler
             :server  server})
          (catch Throwable t

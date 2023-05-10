@@ -16,11 +16,13 @@
            luminus-transit/luminus-transit {:mvn/version "0.1.6" :exclusions [com.cognitect/transit-clj]}
 
            ;; heart of the app
-           com.github.pdenno/rad-mapper    {:mvn/version "1.0.230" ; For local build, the other is for docker.
+           com.github.pdenno/rad-mapper    {:mvn/version "1.0.231" ; For local build, the other is for docker.
                                             #_#_#_#_#_#_:git/tag "v1.0.186"
                                             :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"
                                             :git/url "https://github.com/pdenno/RADmapper.git"}
-           io.replikativ/datahike          {:mvn/version "0.6.1538"}} ; For saving examples
+           io.replikativ/datahike          {:mvn/version "0.6.1538"} ; For saving examples
+           mount/mount                     {:mvn/version "0.1.17"}
+           tolitius/mount-up               {:mvn/version "0.1.3"}}
 
  :aliases {:build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.9.3" :git/sha "e537cd1"
                                                                :git/url "https://github.com/clojure/tools.build.git"}

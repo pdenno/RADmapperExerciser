@@ -1,4 +1,5 @@
 (ns rm-exerciser.app.components.save-modal
+  "This is used pop up a model indicating the URL at which the example can be retrieved."
   (:require
    [ajax.core :refer [GET POST]]
    [promesa.core :as p]
@@ -27,7 +28,7 @@
              :p 2}))
 
 (def white-style (clj->js {:color "background.paper"}))
-(def svr-prefix "http://localhost:3000/")
+(def svr-prefix "http://localhost:3000/api/")
 (def diag (atom nil))
 
 ;;; https://mui.com/material-ui/react-modal/

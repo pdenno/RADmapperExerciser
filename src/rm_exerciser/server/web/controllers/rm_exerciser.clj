@@ -1,5 +1,6 @@
 (ns rm-exerciser.server.web.controllers.rm-exerciser
   (:require
+   [clojure.string        :refer [split]]
    [clojure.walk          :as walk :refer [keywordize-keys]]
    [rad-mapper.evaluate   :as ev]
    [rad-mapper.builtin    :as bi]
@@ -80,7 +81,7 @@
                       for example, 'foo|bar' ==> [:sdb/foo :sdb/bar]."
   [request]
   (let [{:keys [ident-type ident-val request-objs]} (-> request :query-params keywordize-keys)
-        request-objs (if (coll? request-objs) (vec request-objs) [request-objs])]
+        request-objs (split request-objs #"\|")]
     (log/info "Call to graph-query: " [[ident-type ident-val] request-objs])
     (if (and ident-type ident-val request-objs)
       (let [res (bi/$get [[ident-type ident-val] request-objs])]
