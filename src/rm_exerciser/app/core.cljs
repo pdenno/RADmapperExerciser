@@ -184,7 +184,7 @@
                                      :text result})
                       :share-fns (:right-share top-share-fns)})
            :share-fns (:left-share top-share-fns)
-           :lf-pct 0.10 #_0.55 ; <=================================
+           :lf-pct 0.20 #_0.55 ; <=================================
            :init-width width}))))
 
 (defnc app []

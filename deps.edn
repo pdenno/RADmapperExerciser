@@ -1,22 +1,24 @@
 {:paths   ["src" "resources"]
 
- :deps    {com.taoensso/timbre             {:mvn/version "RELEASE"}
+ :deps    {aleph/aleph                     {:mvn/version "0.6.1"}  ; for ancient-art
+           com.taoensso/timbre             {:mvn/version "RELEASE"}
            ;; Routing/Ring
            metosin/reitit                  {:mvn/version "0.6.0"}
            metosin/ring-http-response      {:mvn/version "0.9.3"}
            ring/ring-core                  {:mvn/version "1.10.0"}
            ring/ring-defaults              {:mvn/version "0.3.4"}
+           ring/ring-jetty-adapter         {:mvn/version "1.10.0"}
            ring-cors/ring-cors             {:mvn/version "0.1.13"}
            metosin/muuntaja                {:mvn/version "0.6.8"} ; http encode/decode
 
            ;; Kit influenced
            selmer/selmer                   {:mvn/version "1.12.58"} ; Used for home.html.
            luminus/ring-ttl-session        {:mvn/version "0.3.3"}
-           luminus/ring-undertow-adapter   {:mvn/version "1.3.1"}
+           #_#_luminus/ring-undertow-adapter   {:mvn/version "1.3.1"}
            luminus-transit/luminus-transit {:mvn/version "0.1.6" :exclusions [com.cognitect/transit-clj]}
 
            ;; heart of the app
-           com.github.pdenno/rad-mapper    {:mvn/version "1.0.231" ; For local build, the other is for docker.
+           com.github.pdenno/rad-mapper    {:mvn/version "1.0.238" ; For local build, the other is for docker.
                                             #_#_#_#_#_#_:git/tag "v1.0.186"
                                             :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"
                                             :git/url "https://github.com/pdenno/RADmapper.git"}

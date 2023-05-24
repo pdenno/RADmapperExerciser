@@ -42,14 +42,3 @@
   []
   (stop)
   (tools-ns/refresh :after 'user/start))
-
-;;; Useful for diagnosis.
-(defn try-start []
-  (mount/start #'rm-exerciser.server.core/server)
-  (mount/start #'rm-exerciser.server.web.routes.pages/page-routes)
-  (mount/start #'rm-exerciser.server.web.routes.api/api-routes))
-
-(defn try-stop []
-  (mount/stop #'rm-exerciser.server.web.routes.pages/page-routes)
-  (mount/stop #'rm-exerciser.server.web.routes.api/api-routes)
-  (mount/stop #'rm-exerciser.server.core/server))

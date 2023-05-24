@@ -1,77 +1,39 @@
 (ns rm-exerciser.server.web.controllers.rm-exerciser
   (:require
+   [clojure.java.io       :as io]
    [clojure.string        :refer [split]]
    [clojure.walk          :as walk :refer [keywordize-keys]]
-   [rad-mapper.evaluate   :as ev]
+   [muuntaja.core         :as m]
    [rad-mapper.builtin    :as bi]
-   [rm-exerciser.server.example-db :as examp]
-   [rm-exerciser.server.web.routes.utils :as utils]
-   [ring.util.http-response :as http-response]
+   [rad-mapper.evaluate   :as ev]
+   [rad-mapper.resolvers  :refer [connect-atm]]
+   [ring.util.http-response :as response]
    [taoensso.timbre :as log])
   (:import
-    [java.util Date]))
+   [java.util Date]))
 
-(def diag (atom nil))
+(def diag (atom {}))
 
-;;; Great example; I'll keep it for a while.
-(defn save-message!
-  [{{:strs [name message]} :form-params :as request}]
-  (reset! diag request)
-  (log/debug "saving message" name message)
-  (let [{:keys [query-fn]} (utils/route-data request)]
-    (try
-      (if (or (empty? name) (empty? message))
-        (cond-> (http-response/found "/")
-          (empty? name)
-          (assoc-in [:flash :errors :name] "name is required")
-          (empty? message)
-          (assoc-in [:flash :errors :message] "message is required"))
-        (do
-          (query-fn :save-message! {:name name :message message})
-          (http-response/found "/")))
-      (catch Exception e
-        (log/error e "failed to save message!")
-        (-> (http-response/found "/")
-            (assoc :flash {:errors {:unknown (.getMessage e)}}))))))
+(defn healthcheck
+  [_request]
+  (log/info "Doing a health check.")
+  (response/ok
+    {:time     (str (Date. (System/currentTimeMillis)))
+     :up-since (str (Date. (.getStartTime (java.lang.management.ManagementFactory/getRuntimeMXBean))))}))
 
-;;; http://localhost:3000/process-rm?code=1%2B2
 (defn process-rm
   "Run RADmapper processRM, returning the result."
-  [{:keys [query-params] :as request}]
-  (reset! diag request)
-  (try
-    (if-let [code (get query-params "code")]
-      (let [data (or (get query-params "data") "")
-            res (ev/processRM :ptag/exp code {:pprint? true :user-data data})]
-        (http-response/ok {#_#_:status 200
-                           #_#_:headers {}
-                           :body res}))
-      (http-response/ok {:status 400 ; "bad request"
-                         :body "No code found."}))
-    (catch Exception e
+  [{{{:keys [code data]} :body} :parameters}]
+  (if code
+    (try
+      (let [res (ev/processRM :ptag/exp code {:pprint? true :user-data data})]
+        (println "=== Result of" code "is" res)
+        (response/ok {:result res}))
+      (catch Exception e
+        (log/error e "Error processing RADmapper code. Code = " code)
+        (-> (response/found "/") (assoc :flash {:errors {:unknown (.getMessage e)}}))))
+    (response/bad-request "No code provided.")))
 
-      (log/error e "Error processing RADmapper code. Code = " (get query-params "code"))
-      (-> (http-response/found "/")
-          (assoc :flash {:errors {:unknown (.getMessage e)}})))))
-
-(defn post-example
-  "Save an example in the examples data base."
-  [request]
-  (log/info "body = " (-> request :parameters :body))
-  (try
-    (if (-> request :parameters :body :code)
-      (if-let [uuid (examp/store-example (-> request :parameters :body))]
-        (http-response/ok {:save-id (str uuid)})
-        (http-response/ok {:status 400 :body "Store failed."}))
-      (http-response/ok {:status 400 :body "No code found."}))
-    (catch Exception e
-      (log/error e "Error in post-example. parameters = " (:parameters request))
-      (-> (http-response/found "/")
-          (assoc :flash {:errors {:unknown (.getMessage e)}})))))
-
-;;; (bi/$get [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
-;;;  = (pathom-resolve {:schema/name "urn:oagis-10.8.4:Nouns:Invoice"} [:sdb/schema-object])
-;;; (But we don't care because we can call $get.)
 (defn graph-query
   "Make a graph query (currently only to data managed by this server).
    Query parameters:
@@ -80,11 +42,49 @@
      - request-objs : a string of elements separated by '|' that will be keywordized to the 'sdb' ns,
                       for example, 'foo|bar' ==> [:sdb/foo :sdb/bar]."
   [request]
+  (log/info "Call to graph-query")
   (let [{:keys [ident-type ident-val request-objs]} (-> request :query-params keywordize-keys)
         request-objs (split request-objs #"\|")]
-    (log/info "Call to graph-query: " [[ident-type ident-val] request-objs])
-    (if (and ident-type ident-val request-objs)
+     (if (and ident-type ident-val request-objs)
       (let [res (bi/$get [[ident-type ident-val] request-objs])]
-        (reset! diag {:res res})
-        (http-response/ok res))
-      (http-response/ok {:failure "Missing query args."}))))
+        (response/ok res #_(m/encode "application/transit+json" res)))
+      (response/bad-request "Missing query args."))))
+
+(defn sem-match
+  "Do semantic match (bi/$semMatch) and return result. Request was a POST."
+  [{{{:keys [src tar]} :body} :parameters}]
+  (if (and src tar)
+    (try (let [res (bi/$semMatch src tar)]
+           (log/info "sem-match result: " res)
+           (response/ok res))
+         (catch Throwable e
+           (log/error "sem-match:" (.getMessage e))
+           (response/bad-request "sem-match: Args bad or request to LLM failed.")))
+    (response/bad-request "src or tar not provided.")))
+
+;;; (->> '[[?e :schema/name ?name]] (m/encode "application/transit+json") (m/decode "application/transit+json"))
+;;; ToDo: Support the 3 options to $query that are nil below.
+;;; ToDo: The non-immediate version of $query could also be supported, I think.
+(defn datalog-query
+  "Run a datalog query against the schema database. Request was a POST.
+
+   Currently this REST datalog query is only used where the client has
+   previously used a graph query ($get) to identify the schema DB:
+   $db := $get([[db/name 'schemaDB'], ['db/connection']])
+
+   Since $query is a higher-order function, the function produced on a JS client
+   checks whether the DB is this $db (the value is just a keyword that will print <<connection>>).
+   and creates a REST call to this code using metadata on $query rather than execute
+   the main body of the query as is typical where the query is executed on the server."
+  [{{{:keys [qforms]} :body} :parameters}]
+  (log/info "Datalog query: qforms (transit) = " qforms)
+  #_(reset! diag {:qforms qforms})
+  (if (not-empty qforms)
+    (try (let [res (bi/query-fn-aux [(connect-atm)] qforms '[$] nil nil nil)]
+           #_(log/info "Datalog query returns: " res)
+           #_(swap! diag #(assoc % :res res))
+           (response/ok (->> res (m/encode "application/transit+json") io/reader line-seq first))) ; CLJS will decode it.
+         (catch Throwable e
+           (log/error "Datalog-query:" (.getMessage e))
+           (response/bad-request "Bad arguments to datalog query.")))
+    (response/bad-request "No arguments applied to datalog query.")))

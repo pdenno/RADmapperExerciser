@@ -1,15 +1,14 @@
 (ns rm-exerciser.server.core
   "top-most file for starting the server, sets mount state server and system atom."
   (:require
+   [ajax.core :refer [GET]] ; for testing
    [clojure.java.io :as io]
    [mount.core :as mount :refer [defstate]]
    [mount-up.core :as mu]
    [rad-mapper.evaluate] ; for mount
-   [rad-mapper.resolvers :refer [schema-db-atm]]          ; for mount
-   [rm-exerciser.server.web.handler]                      ; for mount
-   [rm-exerciser.server.web.handler :refer [handler-map]] ; for mount
-   [ring.adapter.undertow :refer [run-undertow]] ; either...
-   ;[ring.adapter.jetty :as jetty]                ; ...or
+   [rad-mapper.resolvers :refer [schema-db-atm]] ; for mount
+   [rm-exerciser.server.web.handler :refer [app]]
+   [ring.adapter.jetty :as jetty]
    [taoensso.timbre :as log])
   (:gen-class))
 
@@ -28,32 +27,55 @@
   (reset! system nil)
   (when (= profile :prod) (shutdown-agents)))
 
-(defn start [handler {:keys [port] :as opts}]
+(defn test-server [port]
   (try
-    ;; Options: https://github.com/luminus-framework/ring-undertow-adapter
-    (let [server (run-undertow handler opts)
-          #_(jetty/run-jetty handler {:port 3000, :join? false})]
+    ;; Convert the Ring handler into a running web server.
+    (GET (str "http://localhost:" port "/api/health")
+         {:handler (fn [resp] (log/info "Response through server (GET):" resp))
+          :error-handler (fn [{:keys [status status-text]}]
+                           (log/error "Server fails response through server: status = " status " status-text = " status-text)
+                           (throw (ex-info "Server fails health test." {:status status :status-text status-text})))
+          :timeout 1000})
+    (catch Throwable t
+      (log/error t (str "server failed to start on port: " port)))))
+
+(defn start-server [& {:keys [profile] :or {profile :dev}}]
+  (let [base-config (-> "system.edn" io/resource slurp read-string profile)
+        port (-> base-config :server/http :port)
+        host (-> base-config :server/http :host)]
+    (try (let [server (jetty/run-jetty #'rm-exerciser.server.web.handler/app {:port port, :join? false})]
+           (reset! system server)
+           #_(test-server port) ; ToDo: Later!
+           (log/info "Started server on port" port))
+         (catch Throwable t
+           (log/error t "Server failed to start on host " host " port " port ".")))))
+
+#_(defn start [handler {:keys [port] :as opts}]
+  (try
+    ;; Convert the Ring handler into a running web server.
+    (let [server  (jetty/run-jetty handler {:port port, :join? false})]
+      (GET (str "http://localhost:" port "/api/health")
+            {:handler (fn [resp] (log/info "Response through server:" resp))
+             :error-handler (fn [{:keys [status status-text]}]
+                              (log/error "Server fails health test: status = " status " status-text = " status-text)
+                              (throw (ex-info "Server fails health test." {:status status :status-text status-text})))
+             :timeout 1000})
       server)
     (catch Throwable t
       (log/error t (str "server failed to start on port: " port)))))
 
-;;; Handler of opts =  #function[clojure.lang.AFunction/1]
-;;; Handler made from opts handler =  #atom[#delay[{:status :pending, :val nil} 0x769219c3] 0x1630694c]
-;;; handler = #function[kit.guestbook.core/eval24494/fn--24495/fn--24498]
-;;; server  = #object[io.undertow.Undertow 0x7dbbdbb0 io.undertow.Undertow@7dbbdbb0]
-(defn start-server [& {:keys [profile] :or {profile :dev}}]
-  (mu/on-upndown :info mu/log :before)
+#_(defn start-server [& {:keys [profile] :or {profile :dev}}]
   (let [base-config (-> "system.edn" io/resource slurp read-string profile)
         port (-> base-config :server/http :port)
         host (-> base-config :server/http :host)]
-    (try (let [handler (atom (delay (:handler/ring handler-map)))
+    (try (let [handler (atom (delay app))
                server (start (fn [req] (@@handler req)) {:port port :host host})]
            (reset! system server)
-           (log/info "Started server (exerciser) at port" port)
-           {:handler handler
-            :server  server})
+           (log/info "Started server on port" port)
+           server)
          (catch Throwable t
            (log/error t "Server failed to start on host " host " port " port ".")))))
+
 
 (defn -main [& _]
   (start-server))
