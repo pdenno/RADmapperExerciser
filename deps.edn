@@ -18,7 +18,7 @@
            luminus-transit/luminus-transit {:mvn/version "0.1.6" :exclusions [com.cognitect/transit-clj]}
 
            ;; heart of the app
-           com.github.pdenno/rad-mapper    {:mvn/version "1.0.238" ; For local build, the other is for docker.
+           com.github.pdenno/rad-mapper    {:mvn/version "1.0.239" ; For local build, the other is for docker.
                                             #_#_#_#_#_#_:git/tag "v1.0.186"
                                             :git/sha "ae16f29eab2a92de3c9949375e757ef281277303"
                                             :git/url "https://github.com/pdenno/RADmapper.git"}

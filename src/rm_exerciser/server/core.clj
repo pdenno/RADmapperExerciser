@@ -50,33 +50,6 @@
          (catch Throwable t
            (log/error t "Server failed to start on host " host " port " port ".")))))
 
-#_(defn start [handler {:keys [port] :as opts}]
-  (try
-    ;; Convert the Ring handler into a running web server.
-    (let [server  (jetty/run-jetty handler {:port port, :join? false})]
-      (GET (str "http://localhost:" port "/api/health")
-            {:handler (fn [resp] (log/info "Response through server:" resp))
-             :error-handler (fn [{:keys [status status-text]}]
-                              (log/error "Server fails health test: status = " status " status-text = " status-text)
-                              (throw (ex-info "Server fails health test." {:status status :status-text status-text})))
-             :timeout 1000})
-      server)
-    (catch Throwable t
-      (log/error t (str "server failed to start on port: " port)))))
-
-#_(defn start-server [& {:keys [profile] :or {profile :dev}}]
-  (let [base-config (-> "system.edn" io/resource slurp read-string profile)
-        port (-> base-config :server/http :port)
-        host (-> base-config :server/http :host)]
-    (try (let [handler (atom (delay app))
-               server (start (fn [req] (@@handler req)) {:port port :host host})]
-           (reset! system server)
-           (log/info "Started server on port" port)
-           server)
-         (catch Throwable t
-           (log/error t "Server failed to start on host " host " port " port ".")))))
-
-
 (defn -main [& _]
   (start-server))
 

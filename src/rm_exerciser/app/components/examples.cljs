@@ -12,7 +12,7 @@
 
    {:name "2023-05-17, (1): Small remote query"
     :code "( $db  := $get([['db/name', 'schemaDB'], ['db/connection']]);
-  $qfn := query{[?e :schema_name ?name]};
+  $qfn := query{[?e :schema/name ?name]};
   $qfn($db) )"}
 
    {:name "2023-05-17, (2) : Simple get"
