@@ -69,7 +69,7 @@
     (let [user-data (get-user-data)
           _zippy (log/info "******* For RM eval: CODE = \n" code)
           _zippy (log/info "******* For RM eval: DATA = \n" user-data)
-          result (try (ev/processRM :ptag/exp code  {:pprint? false :execute? true :sci? true :user-data user-data})
+          result (try (ev/processRM :ptag/exp code  {:pprint? true :execute? true :sci? true :user-data user-data})
                       (catch js/Error e {:failure (str "Error: " (.-message e))}))]
       result)))
 

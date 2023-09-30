@@ -13,9 +13,6 @@
 
            ;; Kit influenced
            selmer/selmer                   {:mvn/version "1.12.58"} ; Used for home.html.
-           luminus/ring-ttl-session        {:mvn/version "0.3.3"}
-           #_#_luminus/ring-undertow-adapter   {:mvn/version "1.3.1"}
-           luminus-transit/luminus-transit {:mvn/version "0.1.6" :exclusions [com.cognitect/transit-clj]}
 
            ;; heart of the app
            com.github.pdenno/rad-mapper    {:mvn/version "1.0.239" ; For local build, the other is for docker.
@@ -24,7 +21,7 @@
                                             :git/url "https://github.com/pdenno/RADmapper.git"}
            io.replikativ/datahike          {:mvn/version "0.6.1538"} ; For saving examples
            mount/mount                     {:mvn/version "0.1.17"}
-           tolitius/mount-up               {:mvn/version "0.1.3"}}
+           tolitius/mount-up               {:mvn/version "0.1.3"}} ; Maybe get rid of this. I'm referencing it but maybe not using it.
 
  :aliases {:build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.9.3" :git/sha "e537cd1"
                                                                :git/url "https://github.com/clojure/tools.build.git"}

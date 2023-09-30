@@ -134,18 +134,6 @@
   (render request "home.html" {:errors (:errors flash)}))
 ;;;====================================================
 
-;;; ToDo: Use this rather then wrap-cors directly
-#_(defn wrap-base
-  "Wrap handler for CORS (at least). The CORS concern is for Kaocha testing through port 1818."
-  [{:keys [site-defaults-config cookie-secret]}]
-  (let [s ^String cookie-secret
-        cookie-store (cookie/cookie-store {:key (.getBytes s)})]
-    (fn [handler]
-      (-> (defaults/wrap-defaults handler
-                                  (assoc-in site-defaults-config [:session :store] cookie-store))
-          (wrap-cors :access-control-allow-origin [#"http://localhost:1818"]
-                     :access-control-allow-methods [:get :put :post :delete])))))
-
 (def routes
   [["/app" {:get {:summary "Ignore this swagger entry. I get rid of this soon."
                               :handler home}}]
@@ -225,11 +213,18 @@
    (ring/create-default-handler)))
 
 (defn handler-init []
-  (let [app (-> (http/ring-handler
+  (let [site-config (-> "system.edn" io/resource slurp read-string :dev :handler/ring)
+        s ^String (:cookie-secret site-config)
+        cookie-store (cookie/cookie-store {:key (.getBytes s)})
+        app (-> (http/ring-handler
                  (http/router routes options)
                  default-routes
                  {:executor sieppari/executor})
 
+                (defaults/wrap-defaults
+                 (assoc-in site-config [:session :store] cookie-store))
+
+                ;; For Kaocha testing through port 1818, at least."
                 (wrap-cors :access-control-allow-origin [#"http://localhost:1818"]
                            :access-control-allow-methods [:get :put :post :delete]))]
     app))

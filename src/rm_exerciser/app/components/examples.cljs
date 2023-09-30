@@ -7,7 +7,7 @@
 
 ;;; ($get [["schema/name" "urn:oagis-10.8.4:Nouns:Invoice"],  ["schema-object"]])
 (def rm-examples
-  [{:name "2023-05-17, (0): Schema list"
+  [#_{:name "2023-05-17, (0): Schema list"
     :code "$get([['list/id', 'ccts/message-schema'], ['list/content']])"}
 
    {:name "2023-05-17, (1): Small remote query"
